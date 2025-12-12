@@ -41,15 +41,22 @@ def init_game():
         st.session_state.dm = DungeonMasterAI()
         st.session_state.game = GameState()
         st.session_state.messages = [] 
-        
-        intro = st.session_state.dm.generate_story(
+
+        # On récupère texte ET image
+        intro_text, intro_img = st.session_state.dm.generate_story(
             st.session_state.client_ai, 
             st.session_state.current_model, 
             "Je me réveille dans une cellule de prison sombre. Décris l'ambiance."
         )
-        st.session_state.messages.append({"role": "assistant", "content": intro})
+        # On stocke l'image dans le message
+        st.session_state.messages.append({
+            "role": "assistant", 
+            "content": intro_text,
+            "image": intro_img 
+        })
 
 def process_turn(user_action):
+    # Raccourcis
     player = st.session_state.player
     dm = st.session_state.dm
     game = st.session_state.game
@@ -58,47 +65,50 @@ def process_turn(user_action):
     
     st.session_state.messages.append({"role": "user", "content": user_action})
 
+    # --- SÉCURITÉ : On initialise la variable ici pour éviter le NameError ---
+    condition_combat = False 
+
     # --- LOGIQUE DE RENCONTRE ---
     if not game.in_combat:
         en_repit = game.turns_since_last_fight < settings.MIN_TOURS_REPIT
+        
+        # On calcule si le combat doit se lancer
         condition_combat = (not en_repit) and (
             (random.random() < settings.PROBABILITE_BASE) or 
             (game.turns_since_last_fight >= settings.MAX_TOURS_SANS_COMBAT)
         )
+
         if condition_combat:
-            # On passe client/model pour générer l'ennemi (et son image)
             game.current_enemy = dm.spawn_enemy(client, model)
             game.in_combat = True
             game.turns_since_last_fight = 0
             
-            # --- AFFICHAGE DE L'IMAGE ---
-            if "image" in game.current_enemy and game.current_enemy["image"]:
-                # On ajoute un message spécial contenant l'image
-                st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": f"⚠️ **ALERTE : {game.current_enemy['name']} !**",
-                    "image": game.current_enemy["image"] # On stocke les bytes ici
-                })
-            else:
-                st.session_state.messages.append({
-                    "role": "assistant", 
-                    "content": f"⚠️ **ALERTE : {game.current_enemy['name']} !**"
-                })
-            # ----------------------------
+            # Message système (Texte seul)
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": f"⚠️ **ALERTE : {game.current_enemy['name']} !**"
+            })
 
-            intro_monster = dm.generate_story(
+            # L'IA raconte l'apparition -> On génère le texte ET l'image ici
+            intro_text, intro_img = dm.generate_story(
                 client, model, 
                 f"Un ennemi '{game.current_enemy['name']}' surgit ! Décris son apparition."
             )
-            # On ajoute le texte de description à la suite
-            st.session_state.messages.append({"role": "assistant", "content": intro_monster})
-            return 
+            
+            # On ajoute le tout au chat
+            st.session_state.messages.append({
+                "role": "assistant", 
+                "content": intro_text, 
+                "image": intro_img
+            })
+            return # On arrête le tour ici pour laisser le joueur réagir
 
         else:
             game.turns_since_last_fight += 1
 
     # --- RESOLUTION DE L'ACTION ---
     response_text = ""
+    response_img = None 
     
     if game.in_combat:
         if "fuir" in user_action.lower():
@@ -106,11 +116,11 @@ def process_turn(user_action):
                 game.in_combat = False
                 game.current_enemy = None
                 game.turns_since_last_fight = 0
-                response_text = dm.generate_story(client, model, user_action, system_instruction="Fuite réussie.", max_tokens=150)
+                response_text, response_img = dm.generate_story(client, model, user_action, system_instruction="Fuite réussie.", max_tokens=150)
             else:
                 degats_ennemi = game.current_enemy['damage']
                 player.hp -= degats_ennemi
-                response_text = dm.generate_story(client, model, user_action, system_instruction=f"Fuite échouée. Ennemi frappe ({degats_ennemi} dmg).", max_tokens=150)
+                response_text, response_img = dm.generate_story(client, model, user_action, system_instruction=f"Fuite échouée. Ennemi frappe ({degats_ennemi} dmg).", max_tokens=150)
         else:
             # Attaque
             arme_utilisee = player.inventory[0] 
@@ -127,7 +137,7 @@ def process_turn(user_action):
                 game.current_enemy = None
                 game.turns_since_last_fight = 0
                 prompt_victoire = f"VICTOIRE ! Coup fatal ({degats_joueur} dgts). Ennemi mort. Retour au calme."
-                response_text = dm.generate_story(client, model, user_action, system_instruction=prompt_victoire, max_tokens=300)
+                response_text, response_img = dm.generate_story(client, model, user_action, system_instruction=prompt_victoire, max_tokens=300)
             else:
                 degats_ennemi = 0
                 touche = False
@@ -137,7 +147,7 @@ def process_turn(user_action):
                     player.hp -= degats_ennemi
                 
                 if player.hp <= 0:
-                    response_text = dm.generate_story(client, model, "Mort", system_instruction="Joueur mort. Game Over.")
+                    response_text, response_img = dm.generate_story(client, model, "Mort", system_instruction="Joueur mort. Game Over.")
                     st.error("💀 VOUS ÊTES MORT")
                     st.stop()
 
@@ -148,12 +158,18 @@ def process_turn(user_action):
                 Ennemi passe de {pv_avant} à {game.current_enemy['hp']} PV.
                 Riposte: {'Touché' if touche else 'Raté'} -> {degats_ennemi} dmg sur héros.
                 """
-                response_text = dm.generate_story(client, model, user_action, system_instruction=ctx, max_tokens=150)
+                response_text, response_img = dm.generate_story(client, model, user_action, system_instruction=ctx, max_tokens=150)
 
     else:
-        response_text = dm.generate_story(client, model, user_action)
+        # Exploration
+        response_text, response_img = dm.generate_story(client, model, user_action)
 
-    st.session_state.messages.append({"role": "assistant", "content": response_text})
+    # Ajout final au chat
+    st.session_state.messages.append({
+        "role": "assistant", 
+        "content": response_text,
+        "image": response_img
+    })
 
 # ------------------------------------------------------------------
 # INTERFACE UTILISATEUR
@@ -192,7 +208,7 @@ with chat_container:
             st.markdown(msg["content"])
             # Si le message contient une image, on l'affiche
             if "image" in msg:
-                st.image(msg["image"], caption="Généré par RTX 5080 (Pixel Art)", use_container_width=True)
+                st.image(msg["image"], caption="Généré par RTX 5080")
 
 if prompt := st.chat_input("Que faites-vous ?"):
     process_turn(prompt)

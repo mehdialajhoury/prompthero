@@ -55,7 +55,7 @@ def generate_image_rtx(prompt_text, workflow_path="image_workflow.json"):
         print(f"Fichier {workflow_path} introuvable.")
         return None
 
-    # C. INJECTION DES VARIABLES (C'est ici qu'on utilise vos IDs)
+    # C. INJECTION DES VARIABLES
     
     # Nœud 5 : Prompt Positif
     # On ajoute "pixel art" pour renforcer le style
@@ -63,8 +63,8 @@ def generate_image_rtx(prompt_text, workflow_path="image_workflow.json"):
     prompt_data["5"]["inputs"]["text"] = full_prompt
 
     # Nœud 6 : Prompt Négatif
-    prompt_data["6"]["inputs"]["text"] = "photorealistic, blur, blurry, text, watermark, signature, ugly, deformed"
-    
+    prompt_data["6"]["inputs"]["text"] = "photorealistic, 3d render, vector, smooth, blur, noisy, text, watermark, photo, realism, camera"
+
     # Nœud 4 : La Seed (Graine)
     # On met un nombre aléatoire géant pour que l'image change à chaque fois
     prompt_data["4"]["inputs"]["seed"] = random.randint(1, 1000000000000)

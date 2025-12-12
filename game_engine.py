@@ -32,13 +32,16 @@ class DungeonMasterAI:
         """
         self.history = [{"role": "system", "content": self.system_prompt}]
 
-    def generate_story(self, client, model, user_input, system_instruction=None, max_tokens=500):
+    # Retourne un tuple (texte, image_bytes)
+    def generate_story(self, client, model, user_input, system_instruction=None, max_tokens=500, generate_image=True):
         full_content = user_input
         if system_instruction:
             full_content += f"\n\n[INSTRUCTION SYSTÈME IMPÉRATIVE] : {system_instruction}"
         
         self.history.append({"role": "user", "content": full_content})
 
+        # 1. Génération du TEXTE
+        narrative = "..."
         try:
             response = client.chat.completions.create(
                 model=model,
@@ -48,9 +51,28 @@ class DungeonMasterAI:
             )
             narrative = response.choices[0].message.content
             self.history.append({"role": "assistant", "content": narrative})
-            return narrative
         except Exception as e:
-            return f"Erreur IA : {e}"
+            return f"Erreur IA : {e}", None
+
+        # 2. Génération de l'IMAGE
+        image_bytes = None
+        if generate_image:
+            try:
+                # Traduction du prompt en anglais
+                print("Traduction du prompt visuel...")
+                
+                # On ne traduit que les 300 premiers caractères pour aller vite
+                english_prompt = self.create_visual_prompt(client, model, narrative[:300])
+                
+                print(f"Prompt envoyé au GPU : {english_prompt}")
+                
+                # On envoie ce prompt anglais propre au GPU
+                image_bytes = generate_image_rtx(english_prompt)
+                # ------------------------
+            except Exception as e:
+                print(f"Erreur Image : {e}")
+
+        return narrative, image_bytes
 
     def spawn_enemy(self, client, model):
         prompt_generation = """
@@ -72,17 +94,30 @@ class DungeonMasterAI:
         except Exception as e:
             print(f"Erreur JSON monstre: {e}")
 
-        # --- GÉNÉRATION D'IMAGE ---
-        # Description visuelle
-        description_visuelle = f"monster, {enemy_data['name']}, {enemy_data['desc']}, dungeon background, fantasy rpg, pixel art"
-        
-        # On appelle le GPU
-        print("Demande image au serveur...")
-        image_bytes = generate_image_rtx(description_visuelle)
-        
-        # On stocke l'image DANS le dictionnaire de l'ennemi
-        if image_bytes:
-            enemy_data["image"] = image_bytes
-        # ------------------------------------
-
         return enemy_data
+    
+        # Fonction de traduction du prompt pour la génération visuelle
+    def create_visual_prompt(self, client, model, narrative_fr):
+        system_prompt = """
+        Tu es un expert en Prompt Engineering pour Stable Diffusion.
+        TA MISSION : Traduis le texte français fourni en une description visuelle courte et percutante en ANGLAIS.
+        RÈGLES :
+        1. Réponds UNIQUEMENT avec la description en anglais.
+        2. Sois descriptif : mentionne l'éclairage, les objets, l'ambiance.
+        3. Ajoute des mots clés de style : "pixel art, dark atmosphere".
+        4. Ne mets pas de phrases comme "Here is the prompt", juste les mots-clés.
+        """
+        
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Description: {narrative_fr}"}
+                ],
+                temperature=0.3, # Température basse pour être précis
+                max_tokens=100
+            )
+            return response.choices[0].message.content
+        except:
+            return "pixel art, dungeon, dark atmosphere" # Fallback au cas où
