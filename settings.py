@@ -1,10 +1,14 @@
-# settings.py
+import os
+from dotenv import load_dotenv
+
+# On charge les variables d'environnement dès le début du fichier settings
+load_dotenv()
 
 # ========================================
 # CONFIGURATION TECHNIQUE (INFRASTRUCTURE)
 # ========================================
 UTILISER_PC_FIXE = True 
-IP_PC_FIXE = "192.168.1.30" # Votre IP locale
+IP_PC_FIXE = os.getenv("OLLAMA_IP", "localhost")
 MODEL_LOCAL = "llama3.1"
 MODEL_DISTANT = "llama-3.3-70b-versatile"
 
