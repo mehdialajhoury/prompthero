@@ -66,15 +66,32 @@ def process_turn(user_action):
             (game.turns_since_last_fight >= settings.MAX_TOURS_SANS_COMBAT)
         )
         if condition_combat:
+            # On passe client/model pour générer l'ennemi (et son image)
             game.current_enemy = dm.spawn_enemy(client, model)
             game.in_combat = True
             game.turns_since_last_fight = 0
             
+            # --- AFFICHAGE DE L'IMAGE ---
+            if "image" in game.current_enemy and game.current_enemy["image"]:
+                # On ajoute un message spécial contenant l'image
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": f"⚠️ **ALERTE : {game.current_enemy['name']} !**",
+                    "image": game.current_enemy["image"] # On stocke les bytes ici
+                })
+            else:
+                st.session_state.messages.append({
+                    "role": "assistant", 
+                    "content": f"⚠️ **ALERTE : {game.current_enemy['name']} !**"
+                })
+            # ----------------------------
+
             intro_monster = dm.generate_story(
                 client, model, 
                 f"Un ennemi '{game.current_enemy['name']}' surgit ! Décris son apparition."
             )
-            st.session_state.messages.append({"role": "assistant", "content": f"⚠️ **ALERTE : {game.current_enemy['name']} !**\n\n{intro_monster}"})
+            # On ajoute le texte de description à la suite
+            st.session_state.messages.append({"role": "assistant", "content": intro_monster})
             return 
 
         else:
@@ -173,6 +190,9 @@ with chat_container:
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
+            # Si le message contient une image, on l'affiche
+            if "image" in msg:
+                st.image(msg["image"], caption="Généré par RTX 5080 (Pixel Art)", use_container_width=True)
 
 if prompt := st.chat_input("Que faites-vous ?"):
     process_turn(prompt)

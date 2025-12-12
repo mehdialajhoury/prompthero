@@ -2,6 +2,9 @@ import random
 import json
 import settings
 
+# Import de la génération d'image
+from image_client import generate_image_rtx
+
 # ------------------------------------------------------------------
 # CLASSES DU JEU
 # ------------------------------------------------------------------
@@ -55,6 +58,9 @@ class DungeonMasterAI:
         Réponds UNIQUEMENT JSON : {"name": "Nom", "hp": int(20-60), "damage": int(4-10), "desc": "courte desc"}
         """
         temp_msgs = self.history + [{"role": "user", "content": prompt_generation}]
+        
+        enemy_data = {"name": "Rat", "hp": 20, "damage": 4, "desc": "agressif"} # Valeur par défaut
+        
         try:
             response = client.chat.completions.create(
                 model=model,
@@ -62,6 +68,21 @@ class DungeonMasterAI:
                 temperature=0.7,
                 response_format={"type": "json_object"}
             )
-            return json.loads(response.choices[0].message.content)
-        except:
-            return {"name": "Rat", "hp": 20, "damage": 4, "desc": "agressif"}
+            enemy_data = json.loads(response.choices[0].message.content)
+        except Exception as e:
+            print(f"Erreur JSON monstre: {e}")
+
+        # --- GÉNÉRATION D'IMAGE ---
+        # Description visuelle
+        description_visuelle = f"monster, {enemy_data['name']}, {enemy_data['desc']}, dungeon background, fantasy rpg, pixel art"
+        
+        # On appelle le GPU
+        print("Demande image au serveur...")
+        image_bytes = generate_image_rtx(description_visuelle)
+        
+        # On stocke l'image DANS le dictionnaire de l'ennemi
+        if image_bytes:
+            enemy_data["image"] = image_bytes
+        # ------------------------------------
+
+        return enemy_data
