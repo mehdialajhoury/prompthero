@@ -1,0 +1,87 @@
+import random
+import json
+
+# ------------------------------------------------------------------
+# CONFIGURATION & CONSTANTES
+# ------------------------------------------------------------------
+UTILISER_PC_FIXE = True 
+IP_PC_FIXE = "192.168.1.30"
+MODEL_LOCAL = "llama3.1"
+MODEL_DISTANT = "llama-3.3-70b-versatile"
+
+# Constantes de Jeu
+WEAPONS_STATS = {
+    "Une vieille épée": {"min": 8, "max": 15},
+    "Une torche": {"min": 2, "max": 6},
+    "Mains nues": {"min": 1, "max": 3}
+}
+PROBABILITE_BASE = 0.2
+MAX_TOURS_SANS_COMBAT = 5
+MIN_TOURS_REPIT = 2
+
+# ------------------------------------------------------------------
+# CLASSES DU JEU
+# ------------------------------------------------------------------
+class Player:
+    def __init__(self, name):
+        self.name = name
+        self.hp = 100
+        self.inventory = ["Une vieille épée", "Une torche"] 
+    
+    def get_weapon_damage(self, weapon_name):
+        stats = WEAPONS_STATS.get(weapon_name, WEAPONS_STATS["Mains nues"])
+        return random.randint(stats["min"], stats["max"])
+
+class GameState:
+    def __init__(self):
+        self.turns_since_last_fight = 0
+        self.in_combat = False
+        self.current_enemy = None
+
+class DungeonMasterAI:
+    def __init__(self):
+        self.system_prompt = """
+        Tu es le Maître du Donjon. Règles : BRIÈVETÉ (max 3 phrases), RYTHME, 
+        ne joue pas à la place du joueur, n'invente pas de loot, finis tes phrases.
+        """
+        # On stocke l'historique directement dans la classe
+        self.history = [{"role": "system", "content": self.system_prompt}]
+
+    # MODIFICATION : On passe 'client' et 'model' en arguments pour ne pas dépendre de Streamlit ici
+    def generate_story(self, client, model, user_input, system_instruction=None, max_tokens=500):
+        full_content = user_input
+        if system_instruction:
+            full_content += f"\n\n[INSTRUCTION SYSTÈME IMPÉRATIVE] : {system_instruction}"
+        
+        self.history.append({"role": "user", "content": full_content})
+
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=self.history,
+                temperature=0.7,
+                max_tokens=max_tokens 
+            )
+            narrative = response.choices[0].message.content
+            self.history.append({"role": "assistant", "content": narrative})
+            return narrative
+        except Exception as e:
+            return f"Erreur IA : {e}"
+
+    # MODIFICATION : Idem, on passe le client et le modèle
+    def spawn_enemy(self, client, model):
+        prompt_generation = """
+        [MOTEUR DE JEU] Analyse le DERNIER LIEU. Invente un ennemi logique.
+        Réponds UNIQUEMENT JSON : {"name": "Nom", "hp": int(20-60), "damage": int(4-10), "desc": "courte desc"}
+        """
+        temp_msgs = self.history + [{"role": "user", "content": prompt_generation}]
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=temp_msgs,
+                temperature=0.7,
+                response_format={"type": "json_object"}
+            )
+            return json.loads(response.choices[0].message.content)
+        except:
+            return {"name": "Rat", "hp": 20, "damage": 4, "desc": "agressif"}
