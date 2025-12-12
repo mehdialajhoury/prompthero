@@ -1,23 +1,6 @@
 import random
 import json
-
-# ------------------------------------------------------------------
-# CONFIGURATION & CONSTANTES
-# ------------------------------------------------------------------
-UTILISER_PC_FIXE = True 
-IP_PC_FIXE = "192.168.1.30"
-MODEL_LOCAL = "llama3.1"
-MODEL_DISTANT = "llama-3.3-70b-versatile"
-
-# Constantes de Jeu
-WEAPONS_STATS = {
-    "Une vieille épée": {"min": 8, "max": 15},
-    "Une torche": {"min": 2, "max": 6},
-    "Mains nues": {"min": 1, "max": 3}
-}
-PROBABILITE_BASE = 0.2
-MAX_TOURS_SANS_COMBAT = 5
-MIN_TOURS_REPIT = 2
+import settings
 
 # ------------------------------------------------------------------
 # CLASSES DU JEU
@@ -29,7 +12,7 @@ class Player:
         self.inventory = ["Une vieille épée", "Une torche"] 
     
     def get_weapon_damage(self, weapon_name):
-        stats = WEAPONS_STATS.get(weapon_name, WEAPONS_STATS["Mains nues"])
+        stats = settings.WEAPONS_STATS.get(weapon_name, settings.WEAPONS_STATS["Mains nues"])
         return random.randint(stats["min"], stats["max"])
 
 class GameState:
@@ -44,10 +27,8 @@ class DungeonMasterAI:
         Tu es le Maître du Donjon. Règles : BRIÈVETÉ (max 3 phrases), RYTHME, 
         ne joue pas à la place du joueur, n'invente pas de loot, finis tes phrases.
         """
-        # On stocke l'historique directement dans la classe
         self.history = [{"role": "system", "content": self.system_prompt}]
 
-    # MODIFICATION : On passe 'client' et 'model' en arguments pour ne pas dépendre de Streamlit ici
     def generate_story(self, client, model, user_input, system_instruction=None, max_tokens=500):
         full_content = user_input
         if system_instruction:
@@ -68,7 +49,6 @@ class DungeonMasterAI:
         except Exception as e:
             return f"Erreur IA : {e}"
 
-    # MODIFICATION : Idem, on passe le client et le modèle
     def spawn_enemy(self, client, model):
         prompt_generation = """
         [MOTEUR DE JEU] Analyse le DERNIER LIEU. Invente un ennemi logique.

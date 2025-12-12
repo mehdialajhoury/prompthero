@@ -4,29 +4,33 @@ import random
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# IMPORT DU MOTEUR DE JEU
-from game_engine import (
-    Player, GameState, DungeonMasterAI, 
-    UTILISER_PC_FIXE, IP_PC_FIXE, MODEL_LOCAL, MODEL_DISTANT,
-    PROBABILITE_BASE, MAX_TOURS_SANS_COMBAT, MIN_TOURS_REPIT
-)
+# Import des classes du moteur
+from game_engine import Player, GameState, DungeonMasterAI
+
+# Import de la configuration depuis settings.py
+import settings
 
 # ------------------------------------------------------------------
 # INITIALISATION & CONFIGURATION CLIENT
 # ------------------------------------------------------------------
 load_dotenv()
 
-# Configuration du Client IA
 if "client_ai" not in st.session_state:
-    if UTILISER_PC_FIXE:
-        st.session_state.client_ai = OpenAI(base_url=f"http://{IP_PC_FIXE}:11434/v1", api_key="ollama")
-        st.session_state.current_model = MODEL_LOCAL
-        print(f"CONNECTÉ AU PC FIXE ({MODEL_LOCAL})")
+    if settings.UTILISER_PC_FIXE:
+        st.session_state.client_ai = OpenAI(
+            base_url=f"http://{settings.IP_PC_FIXE}:11434/v1", 
+            api_key="ollama"
+        )
+        st.session_state.current_model = settings.MODEL_LOCAL
+        print(f"CONNECTÉ AU PC FIXE ({settings.MODEL_LOCAL})")
     else:
         api_key = os.getenv("GROQ_API_KEY")
-        st.session_state.client_ai = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=api_key)
-        st.session_state.current_model = MODEL_DISTANT
-        print(f"CONNECTÉ À GROQ ({MODEL_DISTANT})")
+        st.session_state.client_ai = OpenAI(
+            base_url="https://api.groq.com/openai/v1", 
+            api_key=api_key
+        )
+        st.session_state.current_model = settings.MODEL_DISTANT
+        print(f"CONNECTÉ À GROQ ({settings.MODEL_DISTANT})")
 
 # ------------------------------------------------------------------
 # FONCTIONS LOGIQUES
@@ -38,7 +42,6 @@ def init_game():
         st.session_state.game = GameState()
         st.session_state.messages = [] 
         
-        # Premier lancement : Intro
         intro = st.session_state.dm.generate_story(
             st.session_state.client_ai, 
             st.session_state.current_model, 
@@ -50,19 +53,17 @@ def process_turn(user_action):
     player = st.session_state.player
     dm = st.session_state.dm
     game = st.session_state.game
-    # On récupère le client et le modèle pour les passer au moteur
     client = st.session_state.client_ai
     model = st.session_state.current_model
     
-    # Ajout du message utilisateur
     st.session_state.messages.append({"role": "user", "content": user_action})
 
     # --- LOGIQUE DE RENCONTRE ---
     if not game.in_combat:
-        en_repit = game.turns_since_last_fight < MIN_TOURS_REPIT
+        en_repit = game.turns_since_last_fight < settings.MIN_TOURS_REPIT
         condition_combat = (not en_repit) and (
-            (random.random() < PROBABILITE_BASE) or 
-            (game.turns_since_last_fight >= MAX_TOURS_SANS_COMBAT)
+            (random.random() < settings.PROBABILITE_BASE) or 
+            (game.turns_since_last_fight >= settings.MAX_TOURS_SANS_COMBAT)
         )
         if condition_combat:
             game.current_enemy = dm.spawn_enemy(client, model)
@@ -133,7 +134,6 @@ def process_turn(user_action):
                 response_text = dm.generate_story(client, model, user_action, system_instruction=ctx, max_tokens=150)
 
     else:
-        # Exploration
         response_text = dm.generate_story(client, model, user_action)
 
     st.session_state.messages.append({"role": "assistant", "content": response_text})
@@ -145,7 +145,6 @@ st.set_page_config(page_title="Le Prompt dont vous êtes le Héros", page_icon="
 
 init_game()
 
-# Sidebar
 with st.sidebar:
     st.title("🛡️ État du Héros")
     hp_percent = st.session_state.player.hp / 100
@@ -167,7 +166,6 @@ with st.sidebar:
     st.markdown("---")
     st.caption(f"Moteur IA : {st.session_state.current_model}")
 
-# Zone principale
 st.title("📖 Un Prompt dont vous êtes le Héros")
 
 chat_container = st.container()
