@@ -2,7 +2,7 @@ import random
 import json
 import settings
 from prompts import SYSTEM_PROMPT, format_player_action
-from lore_manager import LoreManager # <--- IMPORT DU NOUVEAU MANAGER
+from lore_manager import LoreManager
 
 # Import de la génération d'image
 from image_client import generate_image_rtx

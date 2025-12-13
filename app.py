@@ -119,6 +119,18 @@ def apply_custom_style():
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         
+        /* Style des boutons d'action */
+        div.stButton > button {
+            background-color: #2b2b2b;
+            color: #d4af37;
+            border: 1px solid #d4af37;
+        }
+        div.stButton > button:hover {
+            background-color: #3b3b3b;
+            border-color: #ffffff;
+            color: #ffffff;
+        }
+        
         </style>
     """, unsafe_allow_html=True)
 
@@ -134,7 +146,6 @@ def init_game():
         st.session_state.messages = [] 
 
         # Initialisation via la nouvelle fonction process_game_turn
-        # On ne veut pas que l'IA change les PV au démarrage, juste du texte
         game_data, intro_img = st.session_state.dm.process_game_turn(
             st.session_state.client_ai, 
             st.session_state.current_model, 
@@ -187,7 +198,7 @@ def process_turn(user_action):
                 f"Décris son apparition."
             )
 
-            # On utilise process_game_turn, mais on sait que c'est une intro de combat
+            # Intro combat
             game_data, intro_img = dm.process_game_turn(
                 client, model, 
                 prompt_narratif,
@@ -211,10 +222,11 @@ def process_turn(user_action):
     system_instruction = None
     gen_img = True
     forced_mode = None
+    combat_recap = "" 
     
     # === SI COMBAT EN COURS ===
     if game.in_combat:
-        gen_img = False # Pas d'image à chaque coup d'épée
+        gen_img = False 
         
         if "fuir" in user_action.lower():
             if random.random() < 0.5:
@@ -226,6 +238,7 @@ def process_turn(user_action):
                 degats_ennemi = game.current_enemy['damage']
                 player.hp -= degats_ennemi
                 system_instruction = f"La fuite a échoué. L'ennemi a frappé et infligé {degats_ennemi} dégâts."
+                combat_recap = f"\n\n💔 **Fuite ratée ! Dégâts reçus : {degats_ennemi}**"
         else:
             # Combat physique (Calculs Python)
             arme_utilisee = player.inventory[0] 
@@ -242,6 +255,8 @@ def process_turn(user_action):
                 game.current_enemy = None
                 game.turns_since_last_fight = 0
                 system_instruction = f"VICTOIRE. L'ennemi est mort (Coup fatal : {degats_joueur} dmg). Le calme revient."
+                # On force un recap de victoire
+                combat_recap = f"\n\n🏆 **VICTOIRE !** (Dégâts finaux : {degats_joueur})"
             else:
                 degats_ennemi = 0
                 touche = False
@@ -250,16 +265,24 @@ def process_turn(user_action):
                     degats_ennemi = game.current_enemy['damage']
                     player.hp -= degats_ennemi
                 
-                pv_restant = game.current_enemy['hp']
+                pv_ennemi_restant = game.current_enemy['hp']
                 system_instruction = (
                     f"COMBAT EN COURS. Joueur attaque ({arme_utilisee}) : {degats_joueur} dégâts. "
-                    f"Ennemi ({pv_restant} PV restants) riposte : {'Touché' if touche else 'Raté'} ({degats_ennemi} dégâts reçus)."
+                    f"Ennemi ({pv_ennemi_restant} PV restants) riposte : {'Touché' if touche else 'Raté'} ({degats_ennemi} dégâts reçus)."
                 )
+                
+                # --- CONSTRUCTION DU RÉCAPITULATIF ---
+                combat_recap = f"\n\n📊 **BILAN DU TOUR**"
+                combat_recap += f"\n⚔️ Vous infligez : **{degats_joueur}** dégâts"
+                if touche:
+                    combat_recap += f"\n🛡️ Vous recevez : **{degats_ennemi}** dégâts"
+                else:
+                    combat_recap += f"\n💨 Vous esquivez l'attaque !"
+                
+                combat_recap += f"\n❤️ Vos PV : **{player.hp}** | 💀 PV Ennemi : **{pv_ennemi_restant}**"
+                # ----------------------------------------------
 
-    # === APPEL AU MOTEUR JSON (Pour Narrative + Gestion Inventaire Exploration) ===
-    # En combat, system_instruction contient les dégâts calculés.
-    # En exploration, system_instruction est None, l'IA décide tout.
-    
+    # === APPEL AU MOTEUR JSON ===
     game_data, response_img = dm.process_game_turn(
         client, model, 
         user_action, 
@@ -270,60 +293,52 @@ def process_turn(user_action):
     )
 
     # === APPLICATION DES EFFETS JSON ===
-    # 1. Mise à jour PV (Venant de l'IA - ex: piège, potion)
-    # Note : En combat, les dégâts sont déjà appliqués par Python ci-dessus.
-    # L'IA devrait renvoyer hp_change=0 en combat si elle suit bien les consignes,
-    # ou on peut additionner si c'est un effet bonus.
+    
+    # 1. Mise à jour PV
     hp_change = game_data.get("hp_change", 0)
     if hp_change != 0:
         player.hp += hp_change
 
-    # 2. Inventaire (VERSION CORRIGÉE ET INTELLIGENTE)
+    # 2. Inventaire (Intelligent)
     items_added = game_data.get("inventory_add", [])
     if items_added:
-        # On nettoie un peu l'entrée (ex: éviter d'ajouter "Une torche" si on a déjà "Torche")
         player.inventory.extend(items_added)
         
     items_removed_request = game_data.get("inventory_remove", [])
-    items_actually_removed = [] # On va stocker ce qu'on a VRAIMENT supprimé
-
+    items_actually_removed = [] 
     if items_removed_request:
         for target_word in items_removed_request:
-            # On cherche l'objet réel dans l'inventaire qui ressemble à la demande
-            # Ex: Si demande "Torche" et inventaire ["Une torche"], on trouve "Une torche"
             item_to_delete = None
             for real_item in player.inventory:
-                if target_word.lower() in real_item.lower(): # Comparaison insensible à la casse
+                if target_word.lower() in real_item.lower(): 
                     item_to_delete = real_item
                     break
-            
-            # Si on a trouvé une correspondance, on supprime
             if item_to_delete:
                 player.inventory.remove(item_to_delete)
                 items_actually_removed.append(item_to_delete)
-            else:
-                # Debug optionnel : L'IA a demandé de supprimer un truc qu'on a pas
-                print(f"DEBUG: L'IA veut supprimer '{target_word}' mais introuvable dans {player.inventory}")
 
     # 3. Construction Message Final
     final_text = game_data.get("narrative", "")
     
     # Notifications (Feedback UI)
     notifications = []
-    if hp_change < 0: notifications.append(f"💔 Dégâts (IA): {hp_change}")
+    
+    if hp_change < 0 and not game.in_combat: notifications.append(f"💔 Dégâts (Piège/Autre): {hp_change}")
     if hp_change > 0: notifications.append(f"💚 Soins: +{hp_change}")
+    
     if items_added: notifications.append(f"🎒 Trouvé: {', '.join(items_added)}")
-    if items_actually_removed: 
-        notifications.append(f"🗑️ Perdu : {', '.join(items_actually_removed)}")
+    if items_actually_removed: notifications.append(f"🗑️ Perdu: {', '.join(items_actually_removed)}")
     
     if notifications:
         final_text += "\n\n" + " | ".join(notifications)
         
+    if combat_recap:
+        final_text += combat_recap
+
     # Vérification Mort
     if player.hp <= 0 or game_data.get("game_state") == "dead":
         final_text += "\n\n💀 **VOUS ÊTES MORT**"
         st.error("GAME OVER")
-        # st.stop() # Optionnel
 
     # Ajout final au chat
     st.session_state.messages.append({
@@ -375,6 +390,44 @@ with chat_container:
             if "image" in msg and msg["image"] is not None:
                 st.image(msg["image"], caption="Généré par RTX 5080")
 
-if prompt := st.chat_input("Que faites-vous ?"):
+
+# --- ZONE D'ACTIONS (DYNAMIQUE) ---
+
+# 1. SI COMBAT : On affiche les boutons d'actions rapides
+if st.session_state.game.in_combat:
+    st.markdown("### ⚔️ Actions de Combat")
+    
+    # On crée des colonnes pour aligner les boutons
+    # Col 1 : Fuir | Col 2, 3, 4... : Armes
+    cols = st.columns(len(st.session_state.player.inventory) + 1)
+    
+    # BOUTON 1 : FUIR
+    with cols[0]:
+        if st.button("🏃 Fuir le combat", key="btn_flee", use_container_width=True):
+            process_turn("Je tente de fuir !")
+            st.rerun()
+
+    # BOUTONS SUIVANTS : LES ARMES
+    for index, item_name in enumerate(st.session_state.player.inventory):
+        # On récupère les stats pour les afficher sur le bouton
+        stats = settings.WEAPONS_STATS.get(item_name, settings.WEAPONS_STATS["Mains nues"])
+        degats_txt = f"{stats['min']}-{stats['max']} dmg"
+        
+        # On place le bouton dans la colonne suivante
+        with cols[index + 1]:
+            # Le label du bouton inclut le nom et les dégâts
+            label = f"🗡️ {item_name}\n({degats_txt})"
+            
+            if st.button(label, key=f"btn_weapon_{index}", use_container_width=True):
+                # L'action envoyée sera textuelle pour que l'IA comprenne
+                process_turn(f"J'attaque avec {item_name} !")
+                st.rerun()
+
+# 2. ZONE DE SAISIE TEXTUELLE
+placeholder_text = "Que faites-vous ?"
+if st.session_state.game.in_combat:
+    placeholder_text = "Ou décrivez une action créative (ex: 'Je lui jette du sable')..."
+
+if prompt := st.chat_input(placeholder_text):
     process_turn(prompt)
     st.rerun()
