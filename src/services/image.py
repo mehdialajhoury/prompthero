@@ -29,7 +29,7 @@ def get_image(filename, subfolder, folder_type):
         return response.read()
 
 # --- NOUVEAU STYLE : DARK FANTASY ILLUSTRATION ---
-def generate_image_rtx(prompt_text, mode="scenery", workflow_path="image_workflow.json"):
+def generate_image_rtx(prompt_text, mode="scenery", workflow_path="data/image_workflow.json"):
     
     # A. Vérifier serveur
     try:

@@ -1,35 +1,17 @@
-import random
 import json
-import settings
-from prompts import SYSTEM_PROMPT, format_player_action
-from lore_manager import LoreManager
-
-# Import de la génération d'image
-from image_client import generate_image_rtx
+# Import des nouveaux modules
+import src.config as settings
+from src.utils.prompts import SYSTEM_PROMPT, format_player_action
+from src.utils.lore import LoreManager
+from src.services.image import generate_image_rtx
 
 # ------------------------------------------------------------------
-# CLASSES DU JEU
+# CLASSE DU MAÎTRE DE JEU
 # ------------------------------------------------------------------
-class Player:
-    def __init__(self, name):
-        self.name = name
-        self.hp = 100
-        self.inventory = ["Une vieille épée", "Une torche"] 
-    
-    def get_weapon_damage(self, weapon_name):
-        stats = settings.WEAPONS_STATS.get(weapon_name, settings.WEAPONS_STATS["Mains nues"])
-        return random.randint(stats["min"], stats["max"])
-
-class GameState:
-    def __init__(self):
-        self.turns_since_last_fight = 0
-        self.in_combat = False
-        self.current_enemy = None
-
 class DungeonMasterAI:
     def __init__(self):
         self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
-        self.lore = LoreManager() # <--- ON INSTANCIE LE LORE MANAGER ICI
+        self.lore = LoreManager()
 
     # --- AUTO-DÉTECTION ---
     def detect_scene_mode(self, client, model, text):
@@ -49,7 +31,7 @@ class DungeonMasterAI:
         except:
             return "scenery"
 
-    # --- PROCESS GAME TURN (Reste quasi identique) ---
+    # --- PROCESS GAME TURN ---
     def process_game_turn(self, client, model, user_input, player_obj, system_instruction=None, generate_image=True, game_mode=None):
         
         user_content = format_player_action(user_input, player_obj.hp, player_obj.inventory, system_instruction)
@@ -101,21 +83,16 @@ class DungeonMasterAI:
 
         return game_data, image_bytes
 
-    # --- SPAWN ENEMY (MODIFIÉ : UTILISE LE LOREBOOK) ---
+    # --- SPAWN ENEMY ---
     def spawn_enemy(self, client, model):
-        
-        # 1. On pioche un ennemi officiel dans le Lorebook
+        # Utilisation du LoreManager
         enemy_data = self.lore.get_random_enemy()
         print(f"⚔️ Ennemi spawn : {enemy_data['name']}")
 
-        # 2. Génération de l'image OPTIMISÉE
-        # On utilise le 'visual_prompt' pré-écrit du JSON ! C'est beaucoup plus fiable.
         visual_prompt = enemy_data.get("visual_prompt", "")
         if not visual_prompt:
-             # Fallback si on a oublié le prompt dans le JSON
             visual_prompt = f"{enemy_data['name']}, dark fantasy illustration, masterpiece"
         
-        # On envoie direct le prompt officiel, on force le mode character
         enemy_image = generate_image_rtx(visual_prompt, mode="character")
         
         if enemy_image:
@@ -123,10 +100,8 @@ class DungeonMasterAI:
 
         return enemy_data
     
-    # --- TRADUCTEUR VISUEL (Inchangé) ---
+    # --- TRADUCTEUR VISUEL ---
     def create_visual_prompt(self, client, model, narrative_fr, mode="scenery"):
-        # ... (Gardez votre fonction actuelle, elle est parfaite) ...
-        # Je ne la remets pas pour raccourcir, mais elle doit être là !
         if mode == "scenery":
             role_description = "Tu es directeur artistique Dark Fantasy."
             constraints = """
@@ -169,7 +144,6 @@ class DungeonMasterAI:
             )
             content = response.choices[0].message.content.strip()
             
-            # SÉCURITÉ ANTI-REFUS
             refusal_keywords = ["je m'excuse", "je ne peux pas", "i cannot", "apologize", "unable", "désolé"]
             if any(keyword in content.lower() for keyword in refusal_keywords):
                 print(f"⚠️ ALERTE : Refus IA. Fallback.")

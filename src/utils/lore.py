@@ -10,7 +10,12 @@ class LoreManager:
     def load_data(self):
         # Chargement du Bestiaire
         try:
-            with open(os.path.join("data", "bestiary.json"), "r", encoding="utf-8") as f:
+            # On remonte de src/utils/ vers la racine pour trouver data/
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            root_dir = os.path.dirname(os.path.dirname(current_dir))
+            path = os.path.join(root_dir, "data", "bestiary.json")
+            
+            with open(path, "r", encoding="utf-8") as f:
                 self.bestiary = json.load(f)
             print(f"📚 LoreManager : {len(self.bestiary)} monstres chargés.")
         except FileNotFoundError:

@@ -4,17 +4,11 @@ import random
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# Import des classes du moteur
-from game_engine import Player, GameState, DungeonMasterAI
-
-# Import de la configuration depuis settings.py
-import settings
-
-# Import système de sauvegarde
-from save_manager import SaveManager
-
-# Import du système de son
-from sound_manager import SoundManager
+import src.config as settings
+from src.engine.models import Player, GameState
+from src.engine.game import DungeonMasterAI
+from src.utils.saves import SaveManager
+from src.services.sound import SoundManager
 
 # ------------------------------------------------------------------
 # INITIALISATION & CONFIGURATION CLIENT

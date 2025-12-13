@@ -7,7 +7,8 @@ class SoundManager:
     @staticmethod
     def get_absolute_path(filename):
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        return os.path.join(current_dir, "assets", "sounds", filename)
+        root_dir = os.path.dirname(os.path.dirname(current_dir)) # On remonte à la racine
+        return os.path.join(root_dir, "assets", "sounds", filename)
 
     @staticmethod
     def play_ambiance(game_state):
