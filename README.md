@@ -1,4 +1,4 @@
-# Prompt Hero ⚔️
+# Un Prompt dont vous êtes le Héros ⚔️
 
 **Prompt Hero** est un jeu de rôle textuel interactif (Text-Based RPG) "dont vous êtes le héros", propulsé par l'Intelligence Artificielle générative.
 
@@ -89,4 +89,4 @@ MODEL_LOCAL=mistral-nemo
 Bash
 streamlit run app.py
 
-Projet réalisé par Mehdi Al-ajhoury - PSTB 2025
+Projet réalisé par Mehdi Al-Ajhoury - PSTB 2025
