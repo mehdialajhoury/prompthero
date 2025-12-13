@@ -10,6 +10,9 @@ from game_engine import Player, GameState, DungeonMasterAI
 # Import de la configuration depuis settings.py
 import settings
 
+# Import système de sauvegarde
+from save_manager import SaveManager
+
 # ------------------------------------------------------------------
 # INITIALISATION & CONFIGURATION CLIENT
 # ------------------------------------------------------------------
@@ -138,6 +141,14 @@ def apply_custom_style():
 # ------------------------------------------------------------------
 # FONCTIONS LOGIQUES
 # ------------------------------------------------------------------
+def reset_game():
+    """Réinitialise complètement le jeu"""
+    st.session_state.player = Player("Aventurier")
+    st.session_state.dm = DungeonMasterAI()
+    st.session_state.game = GameState()
+    st.session_state.messages = [] 
+    init_game()
+
 def init_game():
     if "player" not in st.session_state:
         st.session_state.player = Player("Aventurier")
@@ -298,6 +309,12 @@ def process_turn(user_action):
     hp_change = game_data.get("hp_change", 0)
     if hp_change != 0:
         player.hp += hp_change
+        # Plafond de PV à 100
+        if player.hp > 100: player.hp = 100
+
+    # CORRECTIF PV NÉGATIFS : On ne descend pas sous 0
+    if player.hp < 0:
+        player.hp = 0
 
     # 2. Inventaire (Intelligent)
     items_added = game_data.get("inventory_add", [])
@@ -338,7 +355,9 @@ def process_turn(user_action):
     # Vérification Mort
     if player.hp <= 0 or game_data.get("game_state") == "dead":
         final_text += "\n\n💀 **VOUS ÊTES MORT**"
-        st.error("GAME OVER")
+        
+        # On force l'état mort si ce n'est pas déjà fait
+        player.hp = 0 
 
     # Ajout final au chat
     st.session_state.messages.append({
@@ -355,9 +374,10 @@ init_game()
 
 with st.sidebar:
     st.title("🛡️ État du Héros")
-    hp_display = max(0, st.session_state.player.hp) # Eviter barre négative
-    hp_percent = hp_display / 100
-    st.progress(hp_percent, text=f"Santé : {st.session_state.player.hp}/100")
+    # Correctif barre de progression
+    current_hp = st.session_state.player.hp
+    bar_value = max(0.0, min(1.0, current_hp / 100))
+    st.progress(bar_value, text=f"Santé : {current_hp}/100")
     
     st.subheader("🎒 Inventaire")
     for item in st.session_state.player.inventory:
@@ -371,6 +391,43 @@ with st.sidebar:
         st.write(f"**{en['name']}**")
         st.caption(en['desc'])
         st.metric("PV Ennemi", f"{en['hp']}")
+        
+    st.markdown("---")
+    
+    # --- SYSTÈME DE SAUVEGARDE ---
+    st.subheader("💾 Système")
+    col_save, col_load = st.columns(2)
+    
+    with col_save:
+        # On désactive la sauvegarde si on est mort
+        if st.session_state.player.hp > 0:
+            if st.button("Sauver", use_container_width=True):
+                success, msg = SaveManager.save_game(
+                    st.session_state.player,
+                    st.session_state.game,
+                    st.session_state.messages
+                )
+                if success:
+                    st.success("Sauvegardé !")
+                else:
+                    st.error("Erreur")
+    
+    with col_load:
+        if st.button("Charger", use_container_width=True):
+            data, msg = SaveManager.load_game()
+            if data:
+                # RECONSTRUCTION DES OBJETS
+                st.session_state.player.name = data["player"]["name"]
+                st.session_state.player.hp = data["player"]["hp"]
+                st.session_state.player.inventory = data["player"]["inventory"]
+                st.session_state.game.turns_since_last_fight = data["game"]["turns_since_last_fight"]
+                st.session_state.game.in_combat = data["game"]["in_combat"]
+                st.session_state.game.current_enemy = data["game"]["current_enemy"]
+                st.session_state.messages = data["messages"]
+                st.success("Chargé !")
+                st.rerun() 
+            else:
+                st.error(msg)
         
     st.markdown("---")
     st.caption(f"Moteur IA : {st.session_state.current_model}")
@@ -393,41 +450,46 @@ with chat_container:
 
 # --- ZONE D'ACTIONS (DYNAMIQUE) ---
 
-# 1. SI COMBAT : On affiche les boutons d'actions rapides
-if st.session_state.game.in_combat:
-    st.markdown("### ⚔️ Actions de Combat")
-    
-    # On crée des colonnes pour aligner les boutons
-    # Col 1 : Fuir | Col 2, 3, 4... : Armes
-    cols = st.columns(len(st.session_state.player.inventory) + 1)
-    
-    # BOUTON 1 : FUIR
-    with cols[0]:
-        if st.button("🏃 Fuir le combat", key="btn_flee", use_container_width=True):
-            process_turn("Je tente de fuir !")
-            st.rerun()
+# GESTION DU GAME OVER
+if st.session_state.player.hp <= 0:
+    st.error("💀 VOUS ÊTES MORT. L'AVENTURE EST TERMINÉE.")
+    if st.button("🔄 Recommencer l'aventure", use_container_width=True):
+        # On vide la session
+        del st.session_state.player
+        st.rerun()
 
-    # BOUTONS SUIVANTS : LES ARMES
-    for index, item_name in enumerate(st.session_state.player.inventory):
-        # On récupère les stats pour les afficher sur le bouton
-        stats = settings.WEAPONS_STATS.get(item_name, settings.WEAPONS_STATS["Mains nues"])
-        degats_txt = f"{stats['min']}-{stats['max']} dmg"
+else:
+    # 1. SI COMBAT : On affiche les boutons d'actions rapides
+    if st.session_state.game.in_combat:
+        st.markdown("### ⚔️ Actions de Combat")
         
-        # On place le bouton dans la colonne suivante
-        with cols[index + 1]:
-            # Le label du bouton inclut le nom et les dégâts
-            label = f"🗡️ {item_name}\n({degats_txt})"
-            
-            if st.button(label, key=f"btn_weapon_{index}", use_container_width=True):
-                # L'action envoyée sera textuelle pour que l'IA comprenne
-                process_turn(f"J'attaque avec {item_name} !")
+        # On crée des colonnes pour aligner les boutons
+        cols = st.columns(len(st.session_state.player.inventory) + 1)
+        
+        # BOUTON 1 : FUIR
+        with cols[0]:
+            if st.button("🏃 Fuir le combat", key="btn_flee", use_container_width=True):
+                process_turn("Je tente de fuir !")
                 st.rerun()
 
-# 2. ZONE DE SAISIE TEXTUELLE
-placeholder_text = "Que faites-vous ?"
-if st.session_state.game.in_combat:
-    placeholder_text = "Ou décrivez une action créative (ex: 'Je lui jette du sable')..."
+        # BOUTONS SUIVANTS : LES ARMES
+        for index, item_name in enumerate(st.session_state.player.inventory):
+            # On récupère les stats pour les afficher sur le bouton
+            stats = settings.WEAPONS_STATS.get(item_name, settings.WEAPONS_STATS["Mains nues"])
+            degats_txt = f"{stats['min']}-{stats['max']} dmg"
+            
+            # On place le bouton dans la colonne suivante
+            with cols[index + 1]:
+                label = f"🗡️ {item_name}\n({degats_txt})"
+                if st.button(label, key=f"btn_weapon_{index}", use_container_width=True):
+                    process_turn(f"J'attaque avec {item_name} !")
+                    st.rerun()
 
-if prompt := st.chat_input(placeholder_text):
-    process_turn(prompt)
-    st.rerun()
+    # 2. ZONE DE SAISIE TEXTUELLE
+    placeholder_text = "Que faites-vous ?"
+    if st.session_state.game.in_combat:
+        placeholder_text = "Ou décrivez une action créative (ex: 'Je lui jette du sable')..."
+
+    if prompt := st.chat_input(placeholder_text):
+        process_turn(prompt)
+        st.rerun()

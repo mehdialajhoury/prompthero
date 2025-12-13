@@ -1,0 +1,18 @@
+{
+    "player": {
+        "name": "Aventurier",
+        "hp": 4,
+        "inventory": [
+            "Une vieille épée"
+        ]
+    },
+    "game": {
+        "turns_since_last_fight": 0,
+        "in_combat": true,
+        "current_enemy": {
+            "name": "Soldat Squelette",
+            "hp": 32,
+            "damage": 6,
+            "desc": "Un amas d'os blanchis maintenus par une magie impie, portant une armure rouillée.",
+            "visual_prompt": "skeleton warrior, rusty ancient armor, glowing blue eyes, holding a cracked shield and sword, dark dungeon background, volumetric fog, (skin:1.5), (flesh:1.5)",
+            "image": 
