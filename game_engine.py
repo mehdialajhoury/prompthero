@@ -2,6 +2,7 @@ import random
 import json
 import settings
 from prompts import SYSTEM_PROMPT, format_player_action
+from lore_manager import LoreManager # <--- IMPORT DU NOUVEAU MANAGER
 
 # Import de la génération d'image
 from image_client import generate_image_rtx
@@ -27,10 +28,10 @@ class GameState:
 
 class DungeonMasterAI:
     def __init__(self):
-        # On charge le prompt JSON depuis le fichier externe
         self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
+        self.lore = LoreManager() # <--- ON INSTANCIE LE LORE MANAGER ICI
 
-    # --- AUTO-DÉTECTION DU MODE VISUEL ---
+    # --- AUTO-DÉTECTION ---
     def detect_scene_mode(self, client, model, text):
         check_prompt = """
         Analyse ce texte. Décrit-il l'apparition d'une AUTRE entité vivante (monstre, PNJ) ?
@@ -48,14 +49,12 @@ class DungeonMasterAI:
         except:
             return "scenery"
 
-    # --- NOUVELLE FONCTION PRINCIPALE (Retourne JSON + Image) ---
+    # --- PROCESS GAME TURN (Reste quasi identique) ---
     def process_game_turn(self, client, model, user_input, player_obj, system_instruction=None, generate_image=True, game_mode=None):
         
-        # 1. Préparation du prompt via prompts.py
         user_content = format_player_action(user_input, player_obj.hp, player_obj.inventory, system_instruction)
         self.history.append({"role": "user", "content": user_content})
 
-        # 2. Appel LLM en MODE JSON
         game_data = {}
         try:
             response = client.chat.completions.create(
@@ -63,26 +62,19 @@ class DungeonMasterAI:
                 messages=self.history,
                 temperature=0.7,
                 max_tokens=1000,
-                response_format={"type": "json_object"} # Force le JSON
+                response_format={"type": "json_object"}
             )
             json_str = response.choices[0].message.content
-            game_data = json.loads(json_str) # Conversion texte -> Dict Python
-            
-            # On ajoute le JSON brut à l'historique pour garder le contexte
+            game_data = json.loads(json_str)
             self.history.append({"role": "assistant", "content": json_str})
 
         except Exception as e:
             print(f"Erreur JSON : {e}")
-            # Fallback de sécurité
             game_data = {
                 "narrative": f"Une confusion trouble vos sens... (Erreur : {e})",
-                "hp_change": 0,
-                "inventory_add": [],
-                "inventory_remove": [],
-                "game_state": "exploration"
+                "hp_change": 0, "inventory_add": [], "inventory_remove": [], "game_state": "exploration"
             }
 
-        # 3. Nettoyage et Extraction Narrative
         narrative_text = game_data.get("narrative", "")
         
         # Correctif Anti-Hallucination
@@ -91,14 +83,12 @@ class DungeonMasterAI:
             narrative_text = narrative_text.replace(wrong, good)
         game_data["narrative"] = narrative_text
 
-        # 4. Génération de l'IMAGE
+        # Image
         image_bytes = None
         if generate_image:
             try:
-                if game_mode:
-                    current_mode = game_mode
-                else:
-                    current_mode = self.detect_scene_mode(client, model, narrative_text)
+                if game_mode: current_mode = game_mode
+                else: current_mode = self.detect_scene_mode(client, model, narrative_text)
                 
                 print(f"Analyse Scène : {current_mode.upper()}")
                 
@@ -111,47 +101,32 @@ class DungeonMasterAI:
 
         return game_data, image_bytes
 
+    # --- SPAWN ENEMY (MODIFIÉ : UTILISE LE LOREBOOK) ---
     def spawn_enemy(self, client, model):
-        prompt_generation = """
-        [MOTEUR DE JEU] Analyse le DERNIER LIEU. Invente un ennemi logique.
-        Réponds UNIQUEMENT JSON : 
-        {
-            "name": "Nom (Français)", 
-            "hp": int(20-60), 
-            "damage": int(4-10), 
-            "desc": "Description PHYSIQUE visuelle précise (ex: un squelette en armure rouillée)"
-        }
-        """
-        temp_msgs = self.history + [{"role": "user", "content": prompt_generation}]
         
-        enemy_data = {"name": "Rat", "hp": 20, "damage": 4, "desc": "un rat géant aux yeux rouges"} 
+        # 1. On pioche un ennemi officiel dans le Lorebook
+        enemy_data = self.lore.get_random_enemy()
+        print(f"⚔️ Ennemi spawn : {enemy_data['name']}")
+
+        # 2. Génération de l'image OPTIMISÉE
+        # On utilise le 'visual_prompt' pré-écrit du JSON ! C'est beaucoup plus fiable.
+        visual_prompt = enemy_data.get("visual_prompt", "")
+        if not visual_prompt:
+             # Fallback si on a oublié le prompt dans le JSON
+            visual_prompt = f"{enemy_data['name']}, dark fantasy illustration, masterpiece"
         
-        try:
-            response = client.chat.completions.create(
-                model=model,
-                messages=temp_msgs,
-                temperature=0.7,
-                response_format={"type": "json_object"}
-            )
-            enemy_data = json.loads(response.choices[0].message.content)
-            
-            # Image de l'ennemi
-            description_monstre = f"{enemy_data['name']}, {enemy_data['desc']}"
-            print(f"Génération illustration monstre ({enemy_data['name']})...")
-            
-            english_prompt = self.create_visual_prompt(client, model, description_monstre, mode="character")
-            enemy_image = generate_image_rtx(english_prompt, mode="character")
-            
-            if enemy_image:
-                enemy_data["image"] = enemy_image
-            
-        except Exception as e:
-            print(f"Erreur JSON monstre: {e}")
+        # On envoie direct le prompt officiel, on force le mode character
+        enemy_image = generate_image_rtx(visual_prompt, mode="character")
+        
+        if enemy_image:
+            enemy_data["image"] = enemy_image
 
         return enemy_data
     
+    # --- TRADUCTEUR VISUEL (Inchangé) ---
     def create_visual_prompt(self, client, model, narrative_fr, mode="scenery"):
-        
+        # ... (Gardez votre fonction actuelle, elle est parfaite) ...
+        # Je ne la remets pas pour raccourcir, mais elle doit être là !
         if mode == "scenery":
             role_description = "Tu es directeur artistique Dark Fantasy."
             constraints = """

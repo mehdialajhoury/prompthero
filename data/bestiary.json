@@ -1,0 +1,30 @@
+{
+    "rat_geant": {
+        "name": "Rat Géant des Égouts",
+        "hp": 25,
+        "damage": 4,
+        "desc": "Une masse de fourrure grasse, de la taille d'un loup, avec des incisives jaunâtres.",
+        "visual_prompt": "giant mutated rat, wet matted fur, glowing red eyes, sharp yellow teeth, dark sewer background, dynamic pose, low angle shot"
+    },
+    "squelette": {
+        "name": "Soldat Squelette",
+        "hp": 40,
+        "damage": 6,
+        "desc": "Un amas d'os blanchis maintenus par une magie impie, portant une armure rouillée.",
+        "visual_prompt": "skeleton warrior, rusty ancient armor, glowing blue eyes, holding a cracked shield and sword, dark dungeon background, volumetric fog, (skin:1.5), (flesh:1.5)"
+    },
+    "gardien": {
+        "name": "Gardien des Ombres",
+        "hp": 60,
+        "damage": 8,
+        "desc": "Une silhouette encapuchonnée de noir, dont le visage n'est qu'un vide obscur.",
+        "visual_prompt": "grim reaper style figure, black tattered hooded cloak, face hidden in shadow, floating, dark ghostly aura, dark fantasy illustration, masterpiece"
+    },
+    "gobelin": {
+        "name": "Éclaireur Gobelin",
+        "hp": 30,
+        "damage": 5,
+        "desc": "Une petite créature à la peau verte et aux oreilles pointues, armée d'une dague dentelée.",
+        "visual_prompt": "goblin scout, green skin, pointed ears, leather armor, holding a jagged dagger, cave background, sneaky posture, detailed texture"
+    }
+}
