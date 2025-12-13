@@ -2,3 +2,8 @@
 .vscode/
 .DS_Store
 __pycache__/
+
+# Sauvegardes et Données locales
+savegame.json
+__pycache__/
+*.pyc

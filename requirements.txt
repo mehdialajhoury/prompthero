@@ -1,3 +1,6 @@
 openai>=1.0.0
-python-dotenv
 streamlit
+openai
+python-dotenv
+websocket-client
+Pillow
