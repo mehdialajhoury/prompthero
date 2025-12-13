@@ -13,6 +13,9 @@ import settings
 # Import système de sauvegarde
 from save_manager import SaveManager
 
+# Import du système de son
+from sound_manager import SoundManager
+
 # ------------------------------------------------------------------
 # INITIALISATION & CONFIGURATION CLIENT
 # ------------------------------------------------------------------
@@ -428,7 +431,9 @@ with st.sidebar:
                 st.rerun() 
             else:
                 st.error(msg)
-        
+
+    SoundManager.play_ambiance(st.session_state.game)
+    
     st.markdown("---")
     st.caption(f"Moteur IA : {st.session_state.current_model}")
 

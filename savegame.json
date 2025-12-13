@@ -1,18 +1,32 @@
 {
     "player": {
         "name": "Aventurier",
-        "hp": 4,
+        "hp": 100,
         "inventory": [
-            "Une vieille épée"
+            "Une vieille épée",
+            "Une torche"
         ]
     },
     "game": {
-        "turns_since_last_fight": 0,
-        "in_combat": true,
-        "current_enemy": {
-            "name": "Soldat Squelette",
-            "hp": 32,
-            "damage": 6,
-            "desc": "Un amas d'os blanchis maintenus par une magie impie, portant une armure rouillée.",
-            "visual_prompt": "skeleton warrior, rusty ancient armor, glowing blue eyes, holding a cracked shield and sword, dark dungeon background, volumetric fog, (skin:1.5), (flesh:1.5)",
-            "image": 
+        "turns_since_last_fight": 1,
+        "in_combat": false,
+        "current_enemy": null
+    },
+    "messages": [
+        {
+            "role": "assistant",
+            "content": "Vous vous réveillez brutalement, votre tête cognant douloureusement contre les murs de pierre froide qui entourent votre cellule. L'obscurité est presque totale, seule une faible lumière filtrant à travers une petite fenêtre grillagée au plafond vous permet de distinguer quelques formes dans la pénombre. Une odeur de moisi et de renfermé vous prend à la gorge. Vous entendez des bruits étouffés de chaînes qui s'entrechoquent et des voix lointaines qui murmurent en sourdine.",
+            "has_image": true
+        },
+        {
+            "role": "user",
+            "content": "je cherche une issue",
+            "has_image": false
+        },
+        {
+            "role": "assistant",
+            "content": "Vous examinez attentivement la pièce à la recherche d'une sortie. Votre regard se pose sur une porte en bois vermoulu au fond de la cellule, mais elle semble être verrouillée et vous n'avez pas la clé.",
+            "has_image": true
+        }
+    ]
+}
