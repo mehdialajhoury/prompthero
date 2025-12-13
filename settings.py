@@ -9,7 +9,8 @@ load_dotenv()
 # ========================================
 UTILISER_PC_FIXE = True 
 IP_PC_FIXE = os.getenv("OLLAMA_IP", "localhost")
-MODEL_LOCAL = "llama3.1"
+#MODEL_LOCAL = "llama3.1"
+MODEL_LOCAL = "mistral-nemo"
 MODEL_DISTANT = "llama-3.3-70b-versatile"
 
 # =====================================

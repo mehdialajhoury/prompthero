@@ -1,6 +1,7 @@
 import random
 import json
 import settings
+from prompts import SYSTEM_PROMPT, format_player_action
 
 # Import de la génération d'image
 from image_client import generate_image_rtx
@@ -26,62 +27,104 @@ class GameState:
 
 class DungeonMasterAI:
     def __init__(self):
-        self.system_prompt = """
-        Tu es le Maître du Donjon. Règles : BRIÈVETÉ (max 3 phrases), RYTHME, 
-        ne joue pas à la place du joueur, n'invente pas de loot, finis tes phrases.
+        # On charge le prompt JSON depuis le fichier externe
+        self.history = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    # --- AUTO-DÉTECTION DU MODE VISUEL ---
+    def detect_scene_mode(self, client, model, text):
+        check_prompt = """
+        Analyse ce texte. Décrit-il l'apparition d'une AUTRE entité vivante (monstre, PNJ) ?
+        Si OUI -> Réponds "CHARACTER". Si NON -> Réponds "SCENERY".
+        Réponds uniquement par le mot-clé.
         """
-        self.history = [{"role": "system", "content": self.system_prompt}]
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "system", "content": check_prompt}, {"role": "user", "content": text}],
+                temperature=0.1, max_tokens=10
+            )
+            result = response.choices[0].message.content.strip().upper()
+            return "character" if "CHARACTER" in result else "scenery"
+        except:
+            return "scenery"
 
-    # Retourne un tuple (texte, image_bytes)
-    def generate_story(self, client, model, user_input, system_instruction=None, max_tokens=500, generate_image=True):
-        full_content = user_input
-        if system_instruction:
-            full_content += f"\n\n[INSTRUCTION SYSTÈME IMPÉRATIVE] : {system_instruction}"
+    # --- NOUVELLE FONCTION PRINCIPALE (Retourne JSON + Image) ---
+    def process_game_turn(self, client, model, user_input, player_obj, system_instruction=None, generate_image=True, game_mode=None):
         
-        self.history.append({"role": "user", "content": full_content})
+        # 1. Préparation du prompt via prompts.py
+        user_content = format_player_action(user_input, player_obj.hp, player_obj.inventory, system_instruction)
+        self.history.append({"role": "user", "content": user_content})
 
-        # 1. Génération du TEXTE
-        narrative = "..."
+        # 2. Appel LLM en MODE JSON
+        game_data = {}
         try:
             response = client.chat.completions.create(
                 model=model,
                 messages=self.history,
                 temperature=0.7,
-                max_tokens=max_tokens 
+                max_tokens=1000,
+                response_format={"type": "json_object"} # Force le JSON
             )
-            narrative = response.choices[0].message.content
-            self.history.append({"role": "assistant", "content": narrative})
-        except Exception as e:
-            return f"Erreur IA : {e}", None
+            json_str = response.choices[0].message.content
+            game_data = json.loads(json_str) # Conversion texte -> Dict Python
+            
+            # On ajoute le JSON brut à l'historique pour garder le contexte
+            self.history.append({"role": "assistant", "content": json_str})
 
-        # 2. Génération de l'IMAGE
+        except Exception as e:
+            print(f"Erreur JSON : {e}")
+            # Fallback de sécurité
+            game_data = {
+                "narrative": f"Une confusion trouble vos sens... (Erreur : {e})",
+                "hp_change": 0,
+                "inventory_add": [],
+                "inventory_remove": [],
+                "game_state": "exploration"
+            }
+
+        # 3. Nettoyage et Extraction Narrative
+        narrative_text = game_data.get("narrative", "")
+        
+        # Correctif Anti-Hallucination
+        replacements = {"coldre": "froid", "dispay": "disparu"}
+        for wrong, good in replacements.items():
+            narrative_text = narrative_text.replace(wrong, good)
+        game_data["narrative"] = narrative_text
+
+        # 4. Génération de l'IMAGE
         image_bytes = None
         if generate_image:
             try:
-                # Traduction du prompt en anglais
-                print("Traduction du prompt visuel...")
+                if game_mode:
+                    current_mode = game_mode
+                else:
+                    current_mode = self.detect_scene_mode(client, model, narrative_text)
                 
-                # On ne traduit que les 300 premiers caractères pour aller vite
-                english_prompt = self.create_visual_prompt(client, model, narrative[:300])
+                print(f"Analyse Scène : {current_mode.upper()}")
                 
-                print(f"Prompt envoyé au GPU : {english_prompt}")
+                english_prompt = self.create_visual_prompt(client, model, narrative_text[:400], mode=current_mode)
+                print(f"Prompt ({current_mode}) : {english_prompt}")
                 
-                # On envoie ce prompt anglais propre au GPU
-                image_bytes = generate_image_rtx(english_prompt)
-                # ------------------------
+                image_bytes = generate_image_rtx(english_prompt, mode=current_mode)
             except Exception as e:
                 print(f"Erreur Image : {e}")
 
-        return narrative, image_bytes
+        return game_data, image_bytes
 
     def spawn_enemy(self, client, model):
         prompt_generation = """
         [MOTEUR DE JEU] Analyse le DERNIER LIEU. Invente un ennemi logique.
-        Réponds UNIQUEMENT JSON : {"name": "Nom", "hp": int(20-60), "damage": int(4-10), "desc": "courte desc"}
+        Réponds UNIQUEMENT JSON : 
+        {
+            "name": "Nom (Français)", 
+            "hp": int(20-60), 
+            "damage": int(4-10), 
+            "desc": "Description PHYSIQUE visuelle précise (ex: un squelette en armure rouillée)"
+        }
         """
         temp_msgs = self.history + [{"role": "user", "content": prompt_generation}]
         
-        enemy_data = {"name": "Rat", "hp": 20, "damage": 4, "desc": "agressif"} # Valeur par défaut
+        enemy_data = {"name": "Rat", "hp": 20, "damage": 4, "desc": "un rat géant aux yeux rouges"} 
         
         try:
             response = client.chat.completions.create(
@@ -91,21 +134,52 @@ class DungeonMasterAI:
                 response_format={"type": "json_object"}
             )
             enemy_data = json.loads(response.choices[0].message.content)
+            
+            # Image de l'ennemi
+            description_monstre = f"{enemy_data['name']}, {enemy_data['desc']}"
+            print(f"Génération illustration monstre ({enemy_data['name']})...")
+            
+            english_prompt = self.create_visual_prompt(client, model, description_monstre, mode="character")
+            enemy_image = generate_image_rtx(english_prompt, mode="character")
+            
+            if enemy_image:
+                enemy_data["image"] = enemy_image
+            
         except Exception as e:
             print(f"Erreur JSON monstre: {e}")
 
         return enemy_data
     
-        # Fonction de traduction du prompt pour la génération visuelle
-    def create_visual_prompt(self, client, model, narrative_fr):
-        system_prompt = """
-        Tu es un expert en Prompt Engineering pour Stable Diffusion.
-        TA MISSION : Traduis le texte français fourni en une description visuelle courte et percutante en ANGLAIS.
-        RÈGLES :
-        1. Réponds UNIQUEMENT avec la description en anglais.
-        2. Sois descriptif : mentionne l'éclairage, les objets, l'ambiance.
-        3. Ajoute des mots clés de style : "pixel art, dark atmosphere".
-        4. Ne mets pas de phrases comme "Here is the prompt", juste les mots-clés.
+    def create_visual_prompt(self, client, model, narrative_fr, mode="scenery"):
+        
+        if mode == "scenery":
+            role_description = "Tu es directeur artistique Dark Fantasy."
+            constraints = """
+            3. Règle d'or : INTERDICTION ABSOLUE de mentionner des personnages. Décris un lieu inanimé.
+            4. Focalise-toi sur : l'ambiance colorée (lueur rouge, ténèbres bleutées), les textures.
+            """
+            context_prefix = "Description d'un LIEU VIDE : "
+            fallback_prompt = "dark dungeon, ominous red lighting, oil painting style, detailed environment"
+            
+        elif mode == "character":
+            role_description = "Tu es illustrateur de couverture de roman Dark Fantasy."
+            constraints = """
+            3. Règle d'or : Décris UNIQUEMENT le sujet principal.
+            4. Mentionne les couleurs dominantes (armure noire, cape rouge, yeux verts).
+            5. Si anomalie (sans tête), utilise la syntaxe (headless:1.5).
+            """
+            context_prefix = "Description physique du SUJET PRINCIPAL : "
+            fallback_prompt = "dark fantasy warrior, red cape, glowing eyes, masterpiece illustration"
+
+        system_prompt = f"""
+        {role_description}
+        TA MISSION : Traduis le texte français en une description visuelle ANGLAISE pour une illustration couleur style "Graphic Novel".
+        
+        RÈGLES IMPÉRATIVES :
+        1. Réponds UNIQUEMENT avec les mots-clés descriptifs anglais.
+        2. Style visuel : "Dark Fantasy Art", "Graphic Novel", "Oil Painting", "Grimdark".
+        3. N'utilise PLUS "sepia" ou "ink drawing". Utilise des termes de couleur et de lumière.
+        {constraints}
         """
         
         try:
@@ -113,11 +187,21 @@ class DungeonMasterAI:
                 model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Description: {narrative_fr}"}
+                    {"role": "user", "content": f"{context_prefix}{narrative_fr}"}
                 ],
-                temperature=0.3, # Température basse pour être précis
-                max_tokens=100
+                temperature=0.3, 
+                max_tokens=120
             )
-            return response.choices[0].message.content
-        except:
-            return "pixel art, dungeon, dark atmosphere" # Fallback au cas où
+            content = response.choices[0].message.content.strip()
+            
+            # SÉCURITÉ ANTI-REFUS
+            refusal_keywords = ["je m'excuse", "je ne peux pas", "i cannot", "apologize", "unable", "désolé"]
+            if any(keyword in content.lower() for keyword in refusal_keywords):
+                print(f"⚠️ ALERTE : Refus IA. Fallback.")
+                return fallback_prompt
+            
+            return content
+            
+        except Exception as e:
+            print(f"Erreur Traduction Prompt : {e}")
+            return fallback_prompt
