@@ -4,155 +4,37 @@ import random
 from dotenv import load_dotenv
 from openai import OpenAI
 
+# IMPORTS CLEAN ARCHITECTURE
 import src.config as settings
 from src.engine.models import Player, GameState
 from src.engine.game import DungeonMasterAI
 from src.utils.saves import SaveManager
 from src.services.sound import SoundManager
+from src.ui.styles import apply_custom_style
 
 # ------------------------------------------------------------------
-# INITIALISATION & CONFIGURATION CLIENT
+# INITIALISATION
 # ------------------------------------------------------------------
 load_dotenv()
-
 st.set_page_config(page_title="Le Prompt dont vous êtes le Héros", page_icon="⚔️", layout="wide", initial_sidebar_state="expanded")
 
+# Client AI
 if "client_ai" not in st.session_state:
     if settings.UTILISER_PC_FIXE:
-        st.session_state.client_ai = OpenAI(
-            base_url=f"http://{settings.IP_PC_FIXE}:11434/v1", 
-            api_key="ollama"
-        )
+        st.session_state.client_ai = OpenAI(base_url=f"http://{settings.IP_PC_FIXE}:11434/v1", api_key="ollama")
         st.session_state.current_model = settings.MODEL_LOCAL
         print(f"CONNECTÉ AU PC FIXE ({settings.MODEL_LOCAL})")
     else:
-        api_key = os.getenv("GROQ_API_KEY")
-        st.session_state.client_ai = OpenAI(
-            base_url="https://api.groq.com/openai/v1", 
-            api_key=api_key
-        )
+        st.session_state.client_ai = OpenAI(base_url="https://api.groq.com/openai/v1", api_key=os.getenv("GROQ_API_KEY"))
         st.session_state.current_model = settings.MODEL_DISTANT
         print(f"CONNECTÉ À GROQ ({settings.MODEL_DISTANT})")
 
-
-# ------------------------------------------------------------------
-# CSS Custom Médiéval
-# ------------------------------------------------------------------
-
-def apply_custom_style():
-    st.markdown("""
-        <style>
-        /* IMPORT DES POLICES */
-        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&display=swap');
-
-        /* 1. FOND GÉNÉRAL ET TEXTE */
-        .stApp {
-            background-color: #0e1117;
-            font-family: 'Lora', serif;
-        }
-        
-        .stMarkdown, .stMarkdown p, .stMarkdown li, div[data-testid="stMarkdownContainer"] p {
-            color: #ffffff !important;
-        }
-        
-        /* Cible le texte (p) à l'intérieur des conteneurs d'images (.stImage) */
-        .stImage p {
-            color: #e0e0e0 !important; /* Blanc légèrement cassé pour un look "légende" élégant */
-            font-style: italic;       /* On ajoute l'italique pour le style */
-            font-size: 0.9rem;        /* Légèrement plus petit que le texte principal */
-        }
-
-        /* 2. TITRES (DORÉS) */
-        h1, h2, h3, h4, h5, h6, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
-            font-family: 'Cinzel', serif !important;
-            color: #d4af37 !important;
-            text-shadow: 2px 2px 4px #000000;
-        }
-        
-        /* 3. BARRE LATÉRALE */
-        [data-testid="stSidebar"] {
-            background-color: #1a1a1a;
-            border-right: 1px solid #444;
-        }
-        [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-             color: #bf4040 !important;
-        }
-        [data-testid="stSidebar"] p, [data-testid="stSidebar"] li, [data-testid="stSidebar"] div {
-            color: #e0e0e0 !important;
-        }
-
-        /* 4. ZONE DE SAISIE (INPUT) */
-        .stChatInput textarea {
-            background-color: #1a1a1a !important;
-            color: #ffffff !important;
-            border: 1px solid #d4af37 !important;
-            caret-color: #d4af37 !important;
-        }
-        .stChatInput textarea::placeholder {
-            color: #a0a0a0 !important;
-            font-style: italic;
-        }
-        
-        div[data-testid="stBottom"] {
-            background-color: #0e1117 !important;
-            border-top: 1px solid #333;
-        }
-        div[data-testid="stBottom"] > div {
-            background-color: #0e1117 !important;
-        }
-
-        header[data-testid="stHeader"] {
-            background-color: transparent !important;
-            visibility: hidden;
-        }
-        
-        [data-testid="stChatMessage"] {
-            background-color: rgba(255, 255, 255, 0.05);
-            border: 1px solid #333;
-            border-radius: 10px;
-        }
-        [data-testid="stChatMessageAvatar"] {
-            background-color: #d4af37 !important;
-        }
-
-        .stProgress > div > div > div > div {
-            background-color: #bf4040;
-        }
-        
-        [data-testid="stSidebarCollapseButton"] {
-            display: none !important;
-        }
-        
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        
-        /* Style des boutons d'action */
-        div.stButton > button {
-            background-color: #2b2b2b;
-            color: #d4af37;
-            border: 1px solid #d4af37;
-        }
-        div.stButton > button:hover {
-            background-color: #3b3b3b;
-            border-color: #ffffff;
-            color: #ffffff;
-        }
-        
-        </style>
-    """, unsafe_allow_html=True)
-
+# Style CSS
+apply_custom_style()
 
 # ------------------------------------------------------------------
 # FONCTIONS LOGIQUES
 # ------------------------------------------------------------------
-def reset_game():
-    """Réinitialise complètement le jeu"""
-    st.session_state.player = Player("Aventurier")
-    st.session_state.dm = DungeonMasterAI()
-    st.session_state.game = GameState()
-    st.session_state.messages = [] 
-    init_game()
-
 def init_game():
     if "player" not in st.session_state:
         st.session_state.player = Player("Aventurier")
@@ -160,8 +42,8 @@ def init_game():
         st.session_state.game = GameState()
         st.session_state.messages = [] 
 
-        # Initialisation via la nouvelle fonction process_game_turn
-        game_data, intro_img = st.session_state.dm.process_game_turn(
+        # Initialisation
+        game_data, img = st.session_state.dm.process_game_turn(
             st.session_state.client_ai, 
             st.session_state.current_model, 
             "Je me réveille dans une cellule de prison sombre. Décris l'ambiance.",
@@ -172,7 +54,8 @@ def init_game():
         st.session_state.messages.append({
             "role": "assistant", 
             "content": game_data.get("narrative", ""),
-            "image": intro_img,
+            "image": img,
+            # On récupère le titre visuel, ou un titre par défaut
             "caption": game_data.get("visual_label", "Introduction")
         })
 
@@ -187,6 +70,11 @@ def process_turn(user_action):
     st.session_state.messages.append({"role": "user", "content": user_action})
 
     condition_combat = False 
+    
+    # Variables tampons pour éviter les UnboundLocalError
+    final_narrative = ""
+    final_image = None
+    final_caption = None
 
     # --- 1. LOGIQUE DE RENCONTRE (Début du combat) ---
     if not game.in_combat:
@@ -204,9 +92,7 @@ def process_turn(user_action):
             
             st.session_state.messages.append({
                 "role": "assistant", 
-                "content": f"⚠️ **ALERTE : {game.current_enemy['name']} !**",
-                "image": intro_img,
-                "caption": f"Apparition : {game.current_enemy['name']}"
+                "content": f"⚠️ **ALERTE : {game.current_enemy['name']} !**"
             })
 
             description_physique = game.current_enemy['desc']
@@ -217,26 +103,25 @@ def process_turn(user_action):
             )
 
             # Intro combat
-            game_data, intro_img = dm.process_game_turn(
+            game_data, img = dm.process_game_turn(
                 client, model, 
                 prompt_narratif,
                 player,
                 game_mode="character" 
             )
             
+            # On ajoute directement et ON QUITTE LA FONCTION (Return)
             st.session_state.messages.append({
                 "role": "assistant", 
                 "content": game_data.get("narrative", ""), 
-                "image": intro_img,
-                "caption": game_data.get("visual_label", None)
+                "image": img,
+                "caption": f"Apparition : {game.current_enemy['name']}"
             })
             return 
 
-        else:
-            game.turns_since_last_fight += 1
 
-
-    # --- 2. RÉSOLUTION DE L'ACTION ---
+    # --- 2. RÉSOLUTION DE L'ACTION (Si pas de nouvelle rencontre) ---
+    game.turns_since_last_fight += 1
     
     system_instruction = None
     gen_img = True
@@ -259,7 +144,7 @@ def process_turn(user_action):
                 system_instruction = f"La fuite a échoué. L'ennemi a frappé et infligé {degats_ennemi} dégâts."
                 combat_recap = f"\n\n💔 **Fuite ratée ! Dégâts reçus : {degats_ennemi}**"
         else:
-            # Combat physique (Calculs Python)
+            # Combat physique
             arme_utilisee = player.inventory[0] 
             for arme in player.inventory:
                 if arme.lower() in user_action.lower():
@@ -274,7 +159,6 @@ def process_turn(user_action):
                 game.current_enemy = None
                 game.turns_since_last_fight = 0
                 system_instruction = f"VICTOIRE. L'ennemi est mort (Coup fatal : {degats_joueur} dmg). Le calme revient."
-                # On force un recap de victoire
                 combat_recap = f"\n\n🏆 **VICTOIRE !** (Dégâts finaux : {degats_joueur})"
             else:
                 degats_ennemi = 0
@@ -290,19 +174,18 @@ def process_turn(user_action):
                     f"Ennemi ({pv_ennemi_restant} PV restants) riposte : {'Touché' if touche else 'Raté'} ({degats_ennemi} dégâts reçus)."
                 )
                 
-                # --- CONSTRUCTION DU RÉCAPITULATIF ---
+                # Recap
                 combat_recap = f"\n\n📊 **BILAN DU TOUR**"
                 combat_recap += f"\n⚔️ Vous infligez : **{degats_joueur}** dégâts"
                 if touche:
                     combat_recap += f"\n🛡️ Vous recevez : **{degats_ennemi}** dégâts"
                 else:
                     combat_recap += f"\n💨 Vous esquivez l'attaque !"
-                
                 combat_recap += f"\n❤️ Vos PV : **{player.hp}** | 💀 PV Ennemi : **{pv_ennemi_restant}**"
-                # ----------------------------------------------
 
     # === APPEL AU MOTEUR JSON ===
-    game_data, response_img = dm.process_game_turn(
+    # C'est ici que l'erreur se produisait : on utilise des noms génériques
+    game_data, final_image = dm.process_game_turn(
         client, model, 
         user_action, 
         player,
@@ -312,19 +195,13 @@ def process_turn(user_action):
     )
 
     # === APPLICATION DES EFFETS JSON ===
-    
-    # 1. Mise à jour PV
     hp_change = game_data.get("hp_change", 0)
     if hp_change != 0:
         player.hp += hp_change
-        # Plafond de PV à 100
         if player.hp > 100: player.hp = 100
 
-    # CORRECTIF PV NÉGATIFS : On ne descend pas sous 0
-    if player.hp < 0:
-        player.hp = 0
+    if player.hp < 0: player.hp = 0
 
-    # 2. Inventaire (Intelligent)
     items_added = game_data.get("inventory_add", [])
     if items_added:
         player.inventory.extend(items_added)
@@ -343,46 +220,43 @@ def process_turn(user_action):
                 items_actually_removed.append(item_to_delete)
 
     # 3. Construction Message Final
-    final_text = game_data.get("narrative", "")
+    final_narrative = game_data.get("narrative", "")
     
-    # Notifications (Feedback UI)
     notifications = []
-    
     if hp_change < 0 and not game.in_combat: notifications.append(f"💔 Dégâts (Piège/Autre): {hp_change}")
     if hp_change > 0: notifications.append(f"💚 Soins: +{hp_change}")
-    
     if items_added: notifications.append(f"🎒 Trouvé: {', '.join(items_added)}")
     if items_actually_removed: notifications.append(f"🗑️ Perdu: {', '.join(items_actually_removed)}")
     
     if notifications:
-        final_text += "\n\n" + " | ".join(notifications)
+        final_narrative += "\n\n" + " | ".join(notifications)
         
     if combat_recap:
-        final_text += combat_recap
+        final_narrative += combat_recap
+
+    # Récupération de la légende pour l'image
+    final_caption = game_data.get("visual_label", None)
 
     # Vérification Mort
     if player.hp <= 0 or game_data.get("game_state") == "dead":
-        final_text += "\n\n💀 **VOUS ÊTES MORT**"
-        
-        # On force l'état mort si ce n'est pas déjà fait
+        final_narrative += "\n\n💀 **VOUS ÊTES MORT**"
         player.hp = 0 
 
-    # Ajout final au chat
+    # Ajout final au chat (CORRECTIF CAPTION ICI)
     st.session_state.messages.append({
         "role": "assistant", 
-        "content": final_text,
-        "image": response_img
+        "content": final_narrative,
+        "image": final_image,
+        "caption": final_caption # <--- On s'assure que la légende est bien passée
     })
 
 # ------------------------------------------------------------------
 # INTERFACE UTILISATEUR
 # ------------------------------------------------------------------
-apply_custom_style() 
 init_game()
 
 with st.sidebar:
     st.title("🛡️ État du Héros")
-    # Correctif barre de progression
     current_hp = st.session_state.player.hp
     bar_value = max(0.0, min(1.0, current_hp / 100))
     st.progress(bar_value, text=f"Santé : {current_hp}/100")
@@ -402,12 +276,10 @@ with st.sidebar:
         
     st.markdown("---")
     
-    # --- SYSTÈME DE SAUVEGARDE ---
     st.subheader("💾 Système")
     col_save, col_load = st.columns(2)
     
     with col_save:
-        # On désactive la sauvegarde si on est mort
         if st.session_state.player.hp > 0:
             if st.button("Sauver", use_container_width=True):
                 success, msg = SaveManager.save_game(
@@ -415,16 +287,13 @@ with st.sidebar:
                     st.session_state.game,
                     st.session_state.messages
                 )
-                if success:
-                    st.success("Sauvegardé !")
-                else:
-                    st.error("Erreur")
+                if success: st.success("Sauvegardé !")
+                else: st.error("Erreur")
     
     with col_load:
         if st.button("Charger", use_container_width=True):
             data, msg = SaveManager.load_game()
             if data:
-                # RECONSTRUCTION DES OBJETS
                 st.session_state.player.name = data["player"]["name"]
                 st.session_state.player.hp = data["player"]["hp"]
                 st.session_state.player.inventory = data["player"]["inventory"]
@@ -436,14 +305,15 @@ with st.sidebar:
                 st.rerun() 
             else:
                 st.error(msg)
-
-    SoundManager.play_ambiance(st.session_state.game)
     
+    SoundManager.play_ambiance(st.session_state.game)
+        
     st.markdown("---")
     st.caption(f"Moteur IA : {st.session_state.current_model}")
 
 st.title("📖 Un Prompt dont vous êtes le Héros")
 
+# Affichage des messages
 chat_container = st.container()
 with chat_container:
     for msg in st.session_state.messages:
@@ -455,48 +325,37 @@ with chat_container:
         with st.chat_message(msg["role"], avatar=avatar_icon):
             st.markdown(msg["content"])
             if "image" in msg and msg["image"] is not None:
-                caption = msg.get("caption", None)
-                st.image(msg["image"], caption=caption)
+                # Récupération propre de la légende
+                caption_text = msg.get("caption", None)
+                st.image(msg["image"], caption=caption_text)
 
-
-# --- ZONE D'ACTIONS (DYNAMIQUE) ---
-
-# GESTION DU GAME OVER
+# Zone d'actions
 if st.session_state.player.hp <= 0:
     st.error("💀 VOUS ÊTES MORT. L'AVENTURE EST TERMINÉE.")
     if st.button("🔄 Recommencer l'aventure", use_container_width=True):
-        # On vide la session
         del st.session_state.player
         st.rerun()
 
 else:
-    # 1. SI COMBAT : On affiche les boutons d'actions rapides
     if st.session_state.game.in_combat:
         st.markdown("### ⚔️ Actions de Combat")
-        
-        # On crée des colonnes pour aligner les boutons
         cols = st.columns(len(st.session_state.player.inventory) + 1)
         
-        # BOUTON 1 : FUIR
         with cols[0]:
             if st.button("🏃 Fuir le combat", key="btn_flee", use_container_width=True):
                 process_turn("Je tente de fuir !")
                 st.rerun()
 
-        # BOUTONS SUIVANTS : LES ARMES
         for index, item_name in enumerate(st.session_state.player.inventory):
-            # On récupère les stats pour les afficher sur le bouton
             stats = settings.WEAPONS_STATS.get(item_name, settings.WEAPONS_STATS["Mains nues"])
             degats_txt = f"{stats['min']}-{stats['max']} dmg"
             
-            # On place le bouton dans la colonne suivante
             with cols[index + 1]:
                 label = f"🗡️ {item_name}\n({degats_txt})"
                 if st.button(label, key=f"btn_weapon_{index}", use_container_width=True):
                     process_turn(f"J'attaque avec {item_name} !")
                     st.rerun()
 
-    # 2. ZONE DE SAISIE TEXTUELLE
     placeholder_text = "Que faites-vous ?"
     if st.session_state.game.in_combat:
         placeholder_text = "Ou décrivez une action créative (ex: 'Je lui jette du sable')..."

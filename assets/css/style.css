@@ -1,0 +1,101 @@
+/* assets/css/style.css */
+
+/* IMPORT DES POLICES */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Lora:ital,wght@0,400;0,700;1,400&display=swap');
+
+/* 1. FOND GÉNÉRAL ET TEXTE */
+.stApp {
+    background-color: #0e1117;
+    font-family: 'Lora', serif;
+}
+
+.stMarkdown, .stMarkdown p, .stMarkdown li, div[data-testid="stMarkdownContainer"] p {
+    color: #ffffff !important;
+}
+
+/* 2. TITRES (DORÉS) */
+h1, h2, h3, h4, h5, h6, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+    font-family: 'Cinzel', serif !important;
+    color: #d4af37 !important;
+    text-shadow: 2px 2px 4px #000000;
+}
+
+/* 3. BARRE LATÉRALE */
+[data-testid="stSidebar"] {
+    background-color: #1a1a1a;
+    border-right: 1px solid #444;
+}
+[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+     color: #bf4040 !important;
+}
+[data-testid="stSidebar"] p, [data-testid="stSidebar"] li, [data-testid="stSidebar"] div {
+    color: #e0e0e0 !important;
+}
+
+/* 4. ZONE DE SAISIE (INPUT) */
+.stChatInput textarea {
+    background-color: #1a1a1a !important;
+    color: #ffffff !important;
+    border: 1px solid #d4af37 !important;
+    caret-color: #d4af37 !important;
+}
+.stChatInput textarea::placeholder {
+    color: #a0a0a0 !important;
+    font-style: italic;
+}
+
+/* 5. FOOTER & HEADER */
+div[data-testid="stBottom"] {
+    background-color: #0e1117 !important;
+    border-top: 1px solid #333;
+}
+div[data-testid="stBottom"] > div {
+    background-color: #0e1117 !important;
+}
+
+header[data-testid="stHeader"] {
+    background-color: transparent !important;
+    visibility: hidden;
+}
+
+/* 6. COMPOSANTS CHAT */
+[data-testid="stChatMessage"] {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid #333;
+    border-radius: 10px;
+}
+[data-testid="stChatMessageAvatar"] {
+    background-color: #d4af37 !important;
+}
+
+/* 7. PROGRESS BAR */
+.stProgress > div > div > div > div {
+    background-color: #bf4040;
+}
+
+/* 8. UI TWEAKS */
+[data-testid="stSidebarCollapseButton"] {
+    display: none !important;
+}
+
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+
+/* 9. BOUTONS */
+div.stButton > button {
+    background-color: #2b2b2b;
+    color: #d4af37;
+    border: 1px solid #d4af37;
+}
+div.stButton > button:hover {
+    background-color: #3b3b3b;
+    border-color: #ffffff;
+    color: #ffffff;
+}
+
+/* 10. LÉGENDES IMAGES */
+.stImage p {
+    color: #e0e0e0 !important;
+    font-style: italic;
+    font-size: 0.9rem;
+}
