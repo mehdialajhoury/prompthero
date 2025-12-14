@@ -13,6 +13,7 @@ RÈGLES FONDAMENTALES :
 FORMAT JSON ATTENDU :
 {
     "narrative": "Le texte de l'histoire qui décrit l'action, les décors et les dialogues...",
+    "visual_label": "Titre très court de la scène (ex: 'Combat contre le Rat', 'Cellule humide')",
     "hp_change": 0,  // Entier. Négatif si le joueur prend des dégâts (piège), Positif s'il se soigne.
     "inventory_add": [], // Liste de chaînes. Ex: ["Clé rouillée", "Potion"] si le joueur trouve un objet.
     "inventory_remove": [], // Liste de chaînes. Ex: ["Torche"] si le joueur utilise/perd un objet.

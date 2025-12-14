@@ -54,6 +54,13 @@ def apply_custom_style():
         .stMarkdown, .stMarkdown p, .stMarkdown li, div[data-testid="stMarkdownContainer"] p {
             color: #ffffff !important;
         }
+        
+        /* Cible le texte (p) à l'intérieur des conteneurs d'images (.stImage) */
+        .stImage p {
+            color: #e0e0e0 !important; /* Blanc légèrement cassé pour un look "légende" élégant */
+            font-style: italic;       /* On ajoute l'italique pour le style */
+            font-size: 0.9rem;        /* Légèrement plus petit que le texte principal */
+        }
 
         /* 2. TITRES (DORÉS) */
         h1, h2, h3, h4, h5, h6, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
@@ -165,7 +172,8 @@ def init_game():
         st.session_state.messages.append({
             "role": "assistant", 
             "content": game_data.get("narrative", ""),
-            "image": intro_img 
+            "image": intro_img,
+            "caption": game_data.get("visual_label", "Introduction")
         })
 
 def process_turn(user_action):
@@ -196,7 +204,9 @@ def process_turn(user_action):
             
             st.session_state.messages.append({
                 "role": "assistant", 
-                "content": f"⚠️ **ALERTE : {game.current_enemy['name']} !**"
+                "content": f"⚠️ **ALERTE : {game.current_enemy['name']} !**",
+                "image": intro_img,
+                "caption": f"Apparition : {game.current_enemy['name']}"
             })
 
             description_physique = game.current_enemy['desc']
@@ -217,7 +227,8 @@ def process_turn(user_action):
             st.session_state.messages.append({
                 "role": "assistant", 
                 "content": game_data.get("narrative", ""), 
-                "image": intro_img
+                "image": intro_img,
+                "caption": game_data.get("visual_label", None)
             })
             return 
 
@@ -444,7 +455,8 @@ with chat_container:
         with st.chat_message(msg["role"], avatar=avatar_icon):
             st.markdown(msg["content"])
             if "image" in msg and msg["image"] is not None:
-                st.image(msg["image"], caption="Généré par RTX 5080")
+                caption = msg.get("caption", None)
+                st.image(msg["image"], caption=caption)
 
 
 # --- ZONE D'ACTIONS (DYNAMIQUE) ---
