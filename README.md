@@ -89,4 +89,10 @@ MODEL_LOCAL=mistral-nemo
 Bash
 streamlit run app.py
 
+## Ambiance sonore :
+
+# Musique des combats : "depressing, dark ambient music" - Clavier-Music : https://pixabay.com/music/main-title-fearless-final-boss-battle-epic-274997/
+# Musique de l'exploration : "Fearless (final boss battle epic)" - Kulakovka : https://pixabay.com/music/solo-piano-depressing-dark-ambient-music-354469/
+
+
 Projet réalisé par Mehdi Al-Ajhoury - PSTB 2025
