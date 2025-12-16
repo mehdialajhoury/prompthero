@@ -22,3 +22,9 @@ class GameState:
         self.current_enemy = None
         # On stocke le dernier prompt visuel.
         self.last_visual_context = ""
+
+        # --- STATISTIQUES (Score) ---
+        self.total_turns = 0          # Nombre de tours joués
+        self.damage_dealt = 0         # Total dégâts infligés
+        self.damage_taken = 0         # Total dégâts reçus
+        self.enemies_defeated = 0     # Nombre de monstres tués

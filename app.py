@@ -46,7 +46,7 @@ def init_game():
         game_data, img = st.session_state.dm.process_game_turn(
             st.session_state.client_ai, 
             st.session_state.current_model, 
-            "Je me réveille dans une cellule de prison sombre. Décris l'ambiance en français.",
+            "Je me réveille dans une cellule de prison sombre. Je sens un courant d'air frais qui vient d'une grille mal fixée. Décris l'ambiance en français.",
             st.session_state.player,
             game_mode="scenery"
         )
@@ -66,6 +66,9 @@ def process_turn(user_action):
     game = st.session_state.game
     client = st.session_state.client_ai
     model = st.session_state.current_model
+    
+    # STATS : On compte un tour de plus
+    game.total_turns += 1
     
     st.session_state.messages.append({"role": "user", "content": user_action})
 
@@ -141,6 +144,10 @@ def process_turn(user_action):
             else:
                 degats_ennemi = game.current_enemy['damage']
                 player.hp -= degats_ennemi
+                
+                # STATS : Dégâts reçus (fuite ratée)
+                game.damage_taken += degats_ennemi
+                
                 system_instruction = f"La fuite a échoué. L'ennemi a frappé et infligé {degats_ennemi} dégâts."
                 combat_recap = f"\n\n💔 **Fuite ratée ! Dégâts reçus : {degats_ennemi}**"
         else:
@@ -153,11 +160,18 @@ def process_turn(user_action):
             
             degats_joueur = player.get_weapon_damage(arme_utilisee)
             game.current_enemy['hp'] -= degats_joueur
+            
+            # STATS : Dégâts infligés
+            game.damage_dealt += degats_joueur
 
             if game.current_enemy['hp'] <= 0:
                 game.in_combat = False
                 game.current_enemy = None
                 game.turns_since_last_fight = 0
+                
+                # STATS : Ennemi vaincu
+                game.enemies_defeated += 1
+                
                 system_instruction = f"VICTOIRE. L'ennemi est mort (Coup fatal : {degats_joueur} dmg). Le calme revient."
                 combat_recap = f"\n\n🏆 **VICTOIRE !** (Dégâts finaux : {degats_joueur})"
             else:
@@ -167,12 +181,16 @@ def process_turn(user_action):
                     touche = True
                     degats_ennemi = game.current_enemy['damage']
                     player.hp -= degats_ennemi
+                    
+                    # STATS : Dégâts reçus (riposte)
+                    game.damage_taken += degats_ennemi
                 
                 pv_ennemi_restant = game.current_enemy['hp']
                 system_instruction = (
-                    f"COMBAT EN COURS. Joueur attaque ({arme_utilisee}) : {degats_joueur} dégâts. "
-                    f"Ennemi ({pv_ennemi_restant} PV restants) riposte : {'Touché' if touche else 'Raté'} ({degats_ennemi} dégâts reçus)."
-                )
+                f"RÉSULTAT MÉCANIQUE DU TOUR : Le joueur inflige {degats_joueur} dégâts (Arme équipée: {arme_utilisee}). "
+                f"L'ennemi a maintenant {pv_ennemi_restant} PV. "
+                f"Riposte ennemie : {'Touché' if touche else 'Raté'} ({degats_ennemi} dégâts au joueur)."
+            )
                 
                 # Recap
                 combat_recap = f"\n\n📊 **BILAN DU TOUR**"
@@ -198,6 +216,11 @@ def process_turn(user_action):
     hp_change = game_data.get("hp_change", 0)
     if hp_change != 0:
         player.hp += hp_change
+        
+        # STATS : Dégâts de piège (si négatif)
+        if hp_change < 0:
+            game.damage_taken += abs(hp_change)
+            
         if player.hp > 100: player.hp = 100
 
     if player.hp < 0: player.hp = 0
@@ -301,6 +324,13 @@ with st.sidebar:
                 st.session_state.game.turns_since_last_fight = data["game"]["turns_since_last_fight"]
                 st.session_state.game.in_combat = data["game"]["in_combat"]
                 st.session_state.game.current_enemy = data["game"]["current_enemy"]
+                
+                # STATS : Restauration des statistiques
+                st.session_state.game.total_turns = data["game"].get("total_turns", 0)
+                st.session_state.game.damage_dealt = data["game"].get("damage_dealt", 0)
+                st.session_state.game.damage_taken = data["game"].get("damage_taken", 0)
+                st.session_state.game.enemies_defeated = data["game"].get("enemies_defeated", 0)
+                
                 st.session_state.messages = data["messages"]
                 st.success("Chargé !")
                 st.rerun() 
@@ -333,6 +363,19 @@ with chat_container:
 # Zone d'actions
 if st.session_state.player.hp <= 0:
     st.error("💀 VOUS ÊTES MORT. L'AVENTURE EST TERMINÉE.")
+
+    # On affiche le score
+    stats = st.session_state.game
+    st.markdown(f"""
+    ### ⚰️ Fin de l'Aventure
+    | Statistique | Valeur |
+    |---|---|
+    | ⏳ **Tours survécus** | {stats.total_turns} |
+    | 💀 **Monstres vaincus** | {stats.enemies_defeated} |
+    | ⚔️ **Dégâts infligés** | {stats.damage_dealt} |
+    | 💔 **Dégâts subis** | {stats.damage_taken} |
+    """)
+
     if st.button("🔄 Recommencer l'aventure", use_container_width=True):
         del st.session_state.player
         st.rerun()

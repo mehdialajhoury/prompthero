@@ -42,7 +42,7 @@ class DungeonMasterAI:
             response = client.chat.completions.create(
                 model=model,
                 messages=self.history,
-                temperature=0.7,
+                temperature=0.6,
                 max_tokens=1000,
                 response_format={"type": "json_object"}
             )
@@ -63,20 +63,18 @@ class DungeonMasterAI:
         replacements = {
             "coldre": "froid", 
             "dispay": "disparu",
-            "Suddenly": "Soudain",
-            "suddenly": "soudain",
-            "However": "Cependant",
-            "however": "cependant",
-            "Cold": "Froid",
-            "cold": "froid",
-            "Moist": "Humide",
-            "moist": "humide",
-            "Damp": "Humide",
-            "damp": "humide",
-            "Dark": "Sombre",
-            "dark": "sombre",
-            "The ": "Le ", # Attention à l'espace après
-            " the ": " le "
+            "Suddenly": "Soudain", "suddenly": "soudain",
+            "However": "Cependant", "however": "cependant",
+            "Cold": "Froid", "cold": "froid",
+            "Moist": "Humide", "moist": "humide",
+            "Damp": "Humide", "damp": "humide",
+            "Dark": "Sombre", "dark": "sombre",
+            "Stone": "Pierre", "stone": "pierre",
+            "Wood": "Bois", "wood": "bois",
+            "Opening": "Ouverture", "opening": "ouverture",
+            "Breeze": "Brise", "breeze": "brise",
+            "Froidstone": "Pierre froide", # Le fameux bug !
+            "The ": "Le ", " the ": " le "
         }
         for wrong, good in replacements.items():
             narrative_text = narrative_text.replace(wrong, good)
