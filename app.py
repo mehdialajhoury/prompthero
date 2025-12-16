@@ -16,7 +16,7 @@ from src.ui.styles import apply_custom_style
 # INITIALISATION
 # ------------------------------------------------------------------
 load_dotenv()
-st.set_page_config(page_title="Le Prompt dont vous êtes le Héros", page_icon="⚔️", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Un Prompt dont vous êtes le Héros", page_icon="⚔️", layout="wide", initial_sidebar_state="expanded")
 
 # Client AI
 if "client_ai" not in st.session_state:
