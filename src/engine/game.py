@@ -59,8 +59,25 @@ class DungeonMasterAI:
 
         narrative_text = game_data.get("narrative", "")
         
-        # Correctif Anti-Hallucination
-        replacements = {"coldre": "froid", "dispay": "disparu"}
+        # Correctif Anti-Mauvaise génération en français
+        replacements = {
+            "coldre": "froid", 
+            "dispay": "disparu",
+            "Suddenly": "Soudain",
+            "suddenly": "soudain",
+            "However": "Cependant",
+            "however": "cependant",
+            "Cold": "Froid",
+            "cold": "froid",
+            "Moist": "Humide",
+            "moist": "humide",
+            "Damp": "Humide",
+            "damp": "humide",
+            "Dark": "Sombre",
+            "dark": "sombre",
+            "The ": "Le ", # Attention à l'espace après
+            " the ": " le "
+        }
         for wrong, good in replacements.items():
             narrative_text = narrative_text.replace(wrong, good)
         game_data["narrative"] = narrative_text
@@ -102,6 +119,29 @@ class DungeonMasterAI:
     
     # --- TRADUCTEUR VISUEL ---
     def create_visual_prompt(self, client, model, narrative_fr, mode="scenery"):
+        
+        # 1. RÉCUPÉRATION DU CONTEXTE PRÉCÉDENT
+        # On va chercher dans l'historique ce qui a été dit juste avant
+        previous_context_text = ""
+        try:
+            # self.history contient déjà le message USER actuel à la fin.
+            # On cherche donc avant lui pour trouver le dernier message de l'assistant.
+            # On parcourt l'historique à l'envers en excluant le dernier message
+            if len(self.history) >= 2:
+                for msg in reversed(self.history[:-1]):
+                    if msg["role"] == "assistant":
+                        # On essaie de lire le JSON de la réponse précédente
+                        try:
+                            prev_data = json.loads(msg["content"])
+                            # On prend le texte narratif précédent (limité à 200 chars pour pas surcharger)
+                            previous_context_text = prev_data.get("narrative", "")[:200]
+                            break # On a trouvé, on arrête de chercher
+                        except:
+                            continue # Ce n'était pas du JSON valide, on cherche encore avant
+        except Exception:
+            previous_context_text = "" # En cas de pépin, on part sans contexte
+
+        # 2. DÉFINITION DU RÔLE
         if mode == "scenery":
             role_description = "Tu es directeur artistique Dark Fantasy."
             constraints = """
@@ -121,14 +161,28 @@ class DungeonMasterAI:
             context_prefix = "Description physique du SUJET PRINCIPAL : "
             fallback_prompt = "dark fantasy warrior, red cape, glowing eyes, masterpiece illustration"
 
+        # 3. CONSTRUCTION DU PROMPT AVEC CONTEXTE
+        # On injecte le previous_context_text s'il existe
+        contexte_instruction = ""
+        if previous_context_text and mode == "scenery":
+            contexte_instruction = f"""
+            CONTEXTE PRÉCÉDENT (Mémoire) : "{previous_context_text}..."
+            RÈGLE DE COHÉRENCE : Le nouveau texte se passe DANS LE MÊME LIEU.
+            Tu dois garder l'ambiance visuelle du contexte précédent, mais ajouter les nouveaux détails du texte actuel.
+            """
+
         system_prompt = f"""
         {role_description}
         TA MISSION : Traduis le texte français en une description visuelle ANGLAISE pour une illustration couleur style "Graphic Novel".
         
+        {contexte_instruction}
+        
         RÈGLES IMPÉRATIVES :
-        1. Réponds UNIQUEMENT avec les mots-clés descriptifs anglais.
-        2. Style visuel : "Dark Fantasy Art", "Graphic Novel", "Oil Painting", "Grimdark".
-        3. N'utilise PLUS "sepia" ou "ink drawing". Utilise des termes de couleur et de lumière.
+        1. Réponds UNIQUEMENT avec des mots-clés descriptifs anglais.
+        2. STYLE VISUEL IMPÉRATIF : Utilise TOUJOURS les mots-clés suivants au début : "comic book panel, graphic novel style, heavy lineart, ink drawing, gritty, high contrast".
+        3. INTERDICTION des termes : "Oil Painting", "3d render", "smooth".
+        4. N'utilise PLUS "sepia". Utilise des termes de couleur et de lumière (ex: "muted colors, deep shadows").
+        # ------------------------
         {constraints}
         """
         

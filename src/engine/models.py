@@ -20,3 +20,5 @@ class GameState:
         self.turns_since_last_fight = 0
         self.in_combat = False
         self.current_enemy = None
+        # On stocke le dernier prompt visuel.
+        self.last_visual_context = ""

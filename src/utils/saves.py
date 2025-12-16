@@ -1,14 +1,17 @@
 import json
 import os
 
-SAVE_FILE = "savegame.json"
+# Le chemin change un peu car on est dans src/utils/
+# On veut sauvegarder à la racine du projet
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SAVE_FILE = os.path.join(BASE_DIR, "data", "savegame.json")
 
 class SaveManager:
     @staticmethod
     def save_game(player, game_state, messages):
         """Sauvegarde l'état complet dans un fichier JSON"""
         
-        # 1. On sérialise le Joueur (On transforme l'objet en dictionnaire)
+        # 1. On sérialise le Joueur
         player_data = {
             "name": player.name,
             "hp": player.hp,
@@ -16,20 +19,28 @@ class SaveManager:
         }
         
         # 2. On sérialise l'État du Jeu
+
+        clean_enemy = None
+        if game_state.current_enemy:
+            clean_enemy = game_state.current_enemy.copy() # Copie pour ne pas modifier l'original
+            if "image" in clean_enemy:
+                del clean_enemy["image"] # On supprime les données binaires de l'image
+        
         game_data = {
             "turns_since_last_fight": game_state.turns_since_last_fight,
             "in_combat": game_state.in_combat,
-            "current_enemy": game_state.current_enemy # C'est déjà un dict ou None, donc c'est bon
+            "current_enemy": clean_enemy 
         }
         
-        # 3. On sérialise l'Historique (ATTENTION : On retire les images pour éviter de casser le JSON)
+        # 3. On sérialise l'Historique
         messages_data = []
         for msg in messages:
             clean_msg = {
                 "role": msg["role"],
                 "content": msg["content"],
-                # On ne sauvegarde PAS "image" car ce sont des octets binaires non compatibles JSON
-                "has_image": "image" in msg and msg["image"] is not None # On note juste qu'il y avait une image
+                "caption": msg.get("caption"), # On garde la légende
+                # On ne sauvegarde PAS l'image
+                "has_image": "image" in msg and msg["image"] is not None 
             }
             messages_data.append(clean_msg)
             
@@ -41,6 +52,9 @@ class SaveManager:
         }
         
         try:
+            # On s'assure que le dossier data existe
+            os.makedirs(os.path.dirname(SAVE_FILE), exist_ok=True)
+            
             with open(SAVE_FILE, "w", encoding="utf-8") as f:
                 json.dump(full_save, f, indent=4, ensure_ascii=False)
             return True, "Sauvegarde réussie !"

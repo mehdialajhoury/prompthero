@@ -28,7 +28,7 @@ def get_image(filename, subfolder, folder_type):
     with urllib.request.urlopen(f"http://{COMFY_SERVER}/view?{url_values}") as response:
         return response.read()
 
-# --- NOUVEAU STYLE : DARK FANTASY ILLUSTRATION ---
+# --- STYLE : DARK FANTASY ILLUSTRATION ---
 def generate_image_rtx(prompt_text, mode="scenery", workflow_path="data/image_workflow.json"):
     
     # A. Vérifier serveur
@@ -48,13 +48,13 @@ def generate_image_rtx(prompt_text, mode="scenery", workflow_path="data/image_wo
 
     # C. CONFIGURATION
     
-    # 1. LE LORA (NOUVEAU FICHIER)
+    # 1. LE LORA
     if "2" in prompt_data and "inputs" in prompt_data["2"]:
         # On utilise le nouveau LoRA téléchargé
         prompt_data["2"]["inputs"]["lora_name"] = "dark_fantasy_xl.safetensors"
         prompt_data["2"]["inputs"]["strength_model"] = 0.8 # Un peu moins fort pour laisser passer les couleurs
 
-    # 2. PROMPTS SPÉCIFIQUES (NOUVEAU STYLE)
+    # 2. PROMPTS SPÉCIFIQUES
     if mode == "scenery":
         # --- MODE DÉCOR ---
         # On veut de la couleur, du détail, une ambiance lourde

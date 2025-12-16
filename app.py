@@ -4,7 +4,7 @@ import random
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# IMPORTS CLEAN ARCHITECTURE
+# IMPORTS ARCHITECTURE
 import src.config as settings
 from src.engine.models import Player, GameState
 from src.engine.game import DungeonMasterAI
@@ -46,7 +46,7 @@ def init_game():
         game_data, img = st.session_state.dm.process_game_turn(
             st.session_state.client_ai, 
             st.session_state.current_model, 
-            "Je me réveille dans une cellule de prison sombre. Décris l'ambiance.",
+            "Je me réveille dans une cellule de prison sombre. Décris l'ambiance en français.",
             st.session_state.player,
             game_mode="scenery"
         )
@@ -184,7 +184,7 @@ def process_turn(user_action):
                 combat_recap += f"\n❤️ Vos PV : **{player.hp}** | 💀 PV Ennemi : **{pv_ennemi_restant}**"
 
     # === APPEL AU MOTEUR JSON ===
-    # C'est ici que l'erreur se produisait : on utilise des noms génériques
+    
     game_data, final_image = dm.process_game_turn(
         client, model, 
         user_action, 
@@ -242,12 +242,12 @@ def process_turn(user_action):
         final_narrative += "\n\n💀 **VOUS ÊTES MORT**"
         player.hp = 0 
 
-    # Ajout final au chat (CORRECTIF CAPTION ICI)
+    # Ajout final au chat
     st.session_state.messages.append({
         "role": "assistant", 
         "content": final_narrative,
         "image": final_image,
-        "caption": final_caption # <--- On s'assure que la légende est bien passée
+        "caption": final_caption
     })
 
 # ------------------------------------------------------------------
@@ -255,6 +255,7 @@ def process_turn(user_action):
 # ------------------------------------------------------------------
 init_game()
 
+# SideBar
 with st.sidebar:
     st.title("🛡️ État du Héros")
     current_hp = st.session_state.player.hp

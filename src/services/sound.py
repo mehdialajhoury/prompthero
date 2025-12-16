@@ -18,7 +18,7 @@ class SoundManager:
         file_path = SoundManager.get_absolute_path(filename)
 
         if not os.path.exists(file_path):
-            print(f"⚠️ Audio manquant : {file_path}")
+            print(f"Audio manquant : {file_path}")
             return
 
         # 2. Encodage Base64
