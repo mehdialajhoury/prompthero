@@ -1,10 +1,12 @@
 # Un Prompt dont vous êtes le Héros ⚔️
 
+<img width="1369" height="700" alt="captPromptHero" src="https://github.com/user-attachments/assets/865a4810-6677-4713-ad5f-712e9a577a2d" />
+
 **Prompt Hero** est un jeu de rôle textuel interactif (Text-Based RPG) "dont vous êtes le héros", propulsé par l'Intelligence Artificielle générative.
 
 Ce projet a été développé comme démonstrateur technique explorant l'hybridation entre narration procédurale (LLM) et illustration temps réel (Stable Diffusion), le tout orchestré via une interface web légère.
 
-## 🏗️ Architecture Technique
+## Architecture Technique
 
 Le projet repose sur une architecture **Client-Serveur distribuée** pour optimiser les performances d'inférence.
 
